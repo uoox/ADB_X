@@ -1,0 +1,15 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ADB_X</string>
+    <string name="xposed_description">无线ADB调试增强: 固定端口、配对码、信任WiFi自动开启</string>
+    <string name="section_fixed_port">固定ADB端口</string>
+    <string name="hint_port">端口 (1024-65535)</string>
+    <string name="btn_apply_port">应用端口</string>
+    <string name="section_auto">自动化</string>
+    <string name="sw_auto_enable">连接信任WiFi时自动开启</string>
+    <string name="sw_auto_disable">离开信任WiFi时自动关闭</string>
+    <string name="section_wifi">WiFi列表 (勾选为信任)</string>
+    <string name="btn_refresh_wifi">刷新列表</string>
+    <string name="section_status">状态</string>
+    <string name="btn_pairing_code">读取配对码</string>
+</resources>
