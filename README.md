@@ -1,5 +1,10 @@
 ﻿# ADB_X - 无线ADB调试增强 Xposed 模块
 
+[![Release](https://img.shields.io/github/v/release/blockman3063/ADB_X?style=flat-square&label=Download&color=1565C0)](https://github.com/blockman3063/ADB_X/releases)
+[![License](https://img.shields.io/github/license/blockman3063/ADB_X?style=flat-square)](LICENSE)
+[![Platform](https://img.shields.io/badge/Android-11%2B-3DDC84?style=flat-square&logo=android)](https://developer.android.com/about/versions/11)
+[![Xposed](https://img.shields.io/badge/Xposed-LSPosed-1565C0?style=flat-square)](https://github.com/LSPosed/LSPosed)
+
 ## 功能
 
 - **固定ADB无线调试端口** - 自定义端口号，避免每次随机分配
