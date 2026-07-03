@@ -1,0 +1,10 @@
+# ADB_X v1.0.0
+
+## Initial release
+- Modern Material 3 UI (cards, switches, color indicators)
+- Fixed ADB port (set custom port, avoid random assignment)
+- Pairing code capture & display
+- Trusted WiFi auto-enable (system_server hook, no app needed)
+- Connection watchdog
+- Internal & external IP display
+- Tap to copy IP:port
