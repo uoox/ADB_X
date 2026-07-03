@@ -15,9 +15,27 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        create("release") {
+            val propsFile = rootProject.file("keystore.properties")
+            if (propsFile.exists()) {
+                val lines = propsFile.readLines()
+                val map = lines.filter { it.contains("=") }.associate {
+                    val (k, v) = it.split("=", limit = 2)
+                    k.trim() to v.trim()
+                }
+                storeFile = rootProject.file(map.getOrDefault("storeFile", "adb_x.jks"))
+                storePassword = map.getOrDefault("storePassword", "")
+                keyAlias = map.getOrDefault("keyAlias", "")
+                keyPassword = map.getOrDefault("keyPassword", "")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
