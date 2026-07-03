@@ -95,11 +95,10 @@ jobs:
             xposed_mirror
 
           cd xposed_mirror
-          # Remove old content (keep .git)
           find . -mindepth 1 -not -path './.git/*' -delete
-
           cd ..
-          # Copy all source from main repo (except build artifacts and secrets)
+
+          # Copy all source from main repo (exclude build artifacts)
           rsync -a --exclude='.git' --exclude='app/build' --exclude='.gradle' \
             --exclude='.xposed_repo' --exclude='adb_x.jks' --exclude='adb_x.b64.txt' \
             --exclude='keystore.properties' --exclude='local.properties' \
@@ -107,7 +106,7 @@ jobs:
             --exclude='*.jar' ./ ./xposed_mirror/
 
           cd xposed_mirror
-          # Add module.prop
+          # Add module.prop (metadata for modules.lsposed.org)
           cat > module.prop << PROPEOF
           #
           # ADB_X - Xposed module for wireless ADB enhancement
@@ -123,18 +122,24 @@ jobs:
           maxSdk=36
           PROPEOF
 
-          # APK in version-code directory
-          mkdir -p $VC
-          cp ../app/build/outputs/apk/release/app-release.apk $VC/top.cbug.adbx_$VC.apk
-
           # Changelog
           echo "- Release v$VN" >> changelog.txt
 
-      - name: Push mirror to Xposed repo
+      - name: Push mirror + tag to Xposed repo
+        env:
+          VC: ${{ steps.apk.outputs.versionCode }}
+          VN: ${{ steps.apk.outputs.versionName }}
         run: |
           cd xposed_mirror
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
-          git commit --allow-empty -m "Sync v${{ steps.apk.outputs.versionName }} from blockman3063/ADB_X"
+          git commit --allow-empty -m "Sync v$VN from blockman3063/ADB_X"
+
+          # Push source
           git push origin main
+
+          # Tag the Xposed repo so modules.lsposed.org picks up the release
+          TAG="$VC-$VN"
+          git tag "$TAG" -m "v$VN" -f
+          git push origin "$TAG" -f
