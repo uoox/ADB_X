@@ -22,3 +22,4 @@ local.properties
 # Keystore (private - do not commit)
 /adb_x.jks
 /keystore.properties
+/adb_x.b64.txt

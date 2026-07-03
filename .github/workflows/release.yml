@@ -1,0 +1,91 @@
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ---- Debug build on every push/PR ----
+  debug:
+    name: Debug build
+    runs-on: ubuntu-latest
+    if: "!startsWith(github.ref, 'refs/tags/v')"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+
+  # ---- Signed release on tag push (v*) ----
+  release:
+    name: Signed release
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Reconstruct keystore from secret
+      - name: Decode keystore
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > adb_x.jks
+
+      # Write signing properties from secrets
+      - name: Write signing properties
+        run: |
+          cat > keystore.properties <<EOF
+          storePassword=${{ secrets.STOREPASSWORD }}
+          keyPassword=${{ secrets.KEYPASSWORD }}
+          keyAlias=${{ secrets.KEYALIAS }}
+          storeFile=adb_x.jks
+          EOF
+
+      - name: Build release APK
+        run: ./gradlew assembleRelease
+
+      # Tag name = version (strip "v" prefix)
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ADB_X v${{ steps.version.outputs.version }}
+          body: |
+            ## ADB_X v${{ steps.version.outputs.version }}
+
+            Xposed module — wireless ADB enhancement.
+
+            ### Features
+            - Fixed ADB port (set your own port, avoids random assignment)
+            - Pairing code capture & display
+            - Trusted WiFi auto-enable / auto-disable
+            - Connection watchdog
+            - Internal & external IP display
+            - Tap to copy IP:port
+
+            ### Install
+            1. Install the APK
+            2. Enable in LSPosed Manager
+            3. Scope: `android` + `com.android.settings`
+            4. Reboot
+          files: app/build/outputs/apk/release/app-release.apk
+          draft: false
+          prerelease: false
