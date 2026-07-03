@@ -1,4 +1,4 @@
-﻿package top.cbug.adbx.xposed
+package top.cbug.adbx.xposed
 
 import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers

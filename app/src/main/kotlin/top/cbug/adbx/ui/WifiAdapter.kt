@@ -1,11 +1,11 @@
-﻿package top.cbug.adbx.ui
+package top.cbug.adbx.ui
 
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.CheckBox
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.materialswitch.MaterialSwitch
 import top.cbug.adbx.R
 import top.cbug.adbx.store.Settings
 import top.cbug.adbx.util.WifiHelper
@@ -19,7 +19,7 @@ class WifiAdapter(
     class VH(view: View) : RecyclerView.ViewHolder(view) {
         val tvSsid: TextView = view.findViewById(R.id.tvWifiSsid)
         val tvSecurity: TextView = view.findViewById(R.id.tvWifiSecurity)
-        val cbTrusted: CheckBox = view.findViewById(R.id.cbTrusted)
+        val swTrusted: MaterialSwitch = view.findViewById(R.id.swTrusted)
     }
 
     fun update(newItems: List<WifiItem>) {
@@ -38,11 +38,12 @@ class WifiAdapter(
         val item = items[position]
         holder.tvSsid.text = item.ssid.ifBlank { "(unknown)" }
         holder.tvSecurity.text = item.security
-        holder.cbTrusted.setOnCheckedChangeListener(null)
-        holder.cbTrusted.isChecked = Settings.isTrusted(item.ssid)
-        holder.cbTrusted.setOnCheckedChangeListener { _, isChecked ->
+        holder.swTrusted.setOnCheckedChangeListener(null)
+        holder.swTrusted.isChecked = Settings.isTrusted(item.ssid)
+        holder.swTrusted.setOnCheckedChangeListener { _, isChecked ->
             if (isChecked) Settings.addTrusted(item.ssid)
             else Settings.removeTrusted(item.ssid)
+            Settings.save(holder.itemView.context)
         }
     }
 

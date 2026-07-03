@@ -1,17 +1,41 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.ADB_X" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">@color/primary</item>
-        <item name="colorPrimaryDark">@color/primary_dark</item>
-        <item name="colorAccent">@color/accent</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="colorPrimaryContainer">#BBDEFB</item>
+        <item name="colorOnPrimaryContainer">#0D47A1</item>
+        <item name="colorSecondary">@color/accent</item>
+        <item name="colorOnSecondary">@color/white</item>
+        <item name="colorSecondaryContainer">#B3E5FC</item>
+        <item name="colorOnSecondaryContainer">#01579B</item>
+        <item name="colorTertiary">#26A69A</item>
+        <item name="colorOnTertiary">@color/white</item>
+        <item name="colorTertiaryContainer">#B2DFDB</item>
+        <item name="colorOnTertiaryContainer">#004D40</item>
+        <item name="colorError">#D32F2F</item>
+        <item name="colorOnError">@color/white</item>
+        <item name="colorErrorContainer">#FFCDD2</item>
+        <item name="colorOnErrorContainer">#B71C1C</item>
+        <item name="colorSurface">@color/bg_card</item>
+        <item name="colorOnSurface">@color/text_primary</item>
+        <item name="colorOnSurfaceVariant">@color/text_secondary</item>
+        <item name="colorSurfaceVariant">#ECEFF1</item>
+        <item name="colorOutline">#90A4AE</item>
+        <item name="colorOutlineVariant">#CFD8DC</item>
         <item name="android:statusBarColor">@color/primary_dark</item>
+        <item name="android:navigationBarColor">@color/primary_dark</item>
     </style>
     <style name="SectionTitle">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:padding">16dp</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColor">?android:attr/textColorPrimary</item>
         <item name="android:textSize">16sp</item>
+    </style>
+    <style name="ShapeAppearance.ADB_X.RoundedIcon" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
     </style>
 </resources>

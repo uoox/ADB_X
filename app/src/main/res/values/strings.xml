@@ -1,15 +1,51 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">ADB_X</string>
-    <string name="xposed_description">无线ADB调试增强: 固定端口、配对码、信任WiFi自动开启</string>
+    <string name="xposed_description">无线ADB增强模块: 固定端口，配对码，信任WiFi自动开启</string>
+
+    <!-- Xposed framework status card -->
+    <string name="xposed_title">Xposed framework</string>
+    <string name="xposed_active_title">Module active</string>
+    <string name="xposed_active_subtitle">Module loaded into this app process by LSPosed</string>
+    <string name="xposed_inactive_title">Module not active</string>
+    <string name="xposed_inactive_subtitle_no_frame">No Xposed framework detected — install LSPosed and enable this module in scope</string>
+    <string name="xposed_inactive_subtitle_with_frame">Framework installed (%1$s) but the module has not loaded into this process. Enable scope and reboot.</string>
+    <string name="xposed_state_active">Active</string>
+    <string name="xposed_state_inactive">Inactive</string>
+    <string name="xposed_state_unknown">Not detected</string>
+
+    <!-- Sections / controls -->
     <string name="section_fixed_port">固定ADB端口</string>
+    <string name="sw_fixed_port">启用固定端口</string>
     <string name="hint_port">端口 (1024-65535)</string>
+    <string name="hint_port_helper">Recommended: 5555 — avoid well-known ports</string>
     <string name="btn_apply_port">应用端口</string>
     <string name="section_auto">自动化</string>
     <string name="sw_auto_enable">连接信任WiFi时自动开启</string>
     <string name="sw_auto_disable">离开信任WiFi时自动关闭</string>
-    <string name="section_wifi">WiFi列表 (勾选为信任)</string>
+    <string name="sw_boot_start">开机自启动</string>
+    <string name="section_wifi">WiFi列表 (已保存的)</string>
     <string name="btn_refresh_wifi">刷新列表</string>
     <string name="section_status">状态</string>
-    <string name="btn_pairing_code">读取配对码</string>
-</resources>
+    <string name="btn_pairing_code">显示配对码</string>
+    <string name="section_pairing_code">配对码</string>
+    <string name="btn_set_pairing_code">设置配对码</string>
+    <string name="btn_enable_adb">开启ADB</string>
+        <string name="btn_disable_adb">关闭ADB</string>
+
+        <!-- Status indicator labels (color blocks) -->
+        <string name="si_label_adb">Wireless ADB</string>
+        <string name="si_label_pairing">Pairing mode</string>
+        <string name="si_label_port">Port</string>
+        <string name="si_label_wifi">WiFi</string>
+        <string name="si_label_root">Root</string>
+        <string name="si_value_loading">Loading…</string>
+        <string name="si_value_enabled">Enabled</string>
+        <string name="si_value_disabled">Disabled</string>
+        <string name="si_value_available">Available</string>
+        <string name="si_value_unavailable">Unavailable</string>
+        <string name="si_value_wifi_disconnected">Not connected</string>
+        <string name="si_value_pairing_idle">Idle</string>
+        <string name="si_value_pairing_active">Active on port %1$s</string>
+        <string name="si_value_pairing_code">Code: %1$s</string>
+    </resources>

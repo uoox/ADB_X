@@ -9,3 +9,13 @@
 .cxx
 local.properties
 /app/libs/*.jar
+
+# Session scratch artifacts (do not commit)
+/fix_*.py
+/temp_*.py
+/verify_*.py
+/write_*.py
+/patch.txt
+/build_log.txt
+/modules_config.db
+/modules_config.db.bak

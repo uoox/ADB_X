@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Status indicator semantics -->
+    <color name="status_ok">#2E7D32</color>          <!-- green: enabled / connected -->
+    <color name="status_warn">#E65100</color>        <!-- orange: standby / partial -->
+    <color name="status_off">#90A4AE</color>         <!-- grey: off / disconnected -->
+    <color name="status_unknown">#C62828</color>     <!-- red: error / unknown -->
+    <color name="status_active_bg">#E8F5E9</color>   <!-- light green pill bg -->
+    <color name="status_inactive_bg">#FFF3E0</color> <!-- light orange pill bg -->
+    <color name="status_unknown_bg">#FFEBEE</color>  <!-- light red pill bg -->
+    <color name="status_off_bg">#ECEFF1</color>      <!-- light grey pill bg -->
+</resources>

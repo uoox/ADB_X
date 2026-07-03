@@ -1,56 +1,317 @@
 ﻿package top.cbug.adbx.util
 
 import android.content.Context
-import android.net.wifi.ScanResult
-import android.net.wifi.WifiConfiguration
+import android.util.Log
 import android.net.wifi.WifiManager
+import android.net.wifi.WifiConfiguration
 import android.os.Build
 
 data class SavedWifi(val ssid: String, val bssid: String?, val security: String)
 
 object WifiHelper {
 
+    private const val TAG = "ADB_X_WifiHelper"
+
     fun getSavedNetworks(context: Context): List<SavedWifi> {
-        val wm = context.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-            ?: return emptyList()
+        // 1. Direct XML parsing (most reliable with root)
+        if (ShellUtils.hasRoot()) {
+            val rootXml = try { getSavedNetworksRootXml() } catch (_: Exception) { emptyList() }
+            if (rootXml.isNotEmpty()) {
+                Log.d(TAG, "Loaded " + rootXml.size + " networks via XML")
+                return rootXml
+            }
+        }
+
+        // 2. cmd wifi via su (captures both stdout and stderr)
+        val cmdNetworks = try { getSavedNetworksCmd() } catch (_: Exception) { emptyList() }
+        if (cmdNetworks.isNotEmpty()) {
+            Log.d(TAG, "Loaded " + cmdNetworks.size + " networks via cmd wifi")
+            return cmdNetworks
+        }
+
+        // 3. dumpsys wifi parsing via root
+        if (ShellUtils.hasRoot()) {
+            val rootDump = try { getSavedNetworksRootDumpsys() } catch (_: Exception) { emptyList() }
+            if (rootDump.isNotEmpty()) {
+                Log.d(TAG, "Loaded " + rootDump.size + " networks via dumpsys")
+                return rootDump
+            }
+        }
+
+        // 4. Fallback: use WifiManager API (requires location permission)
+        if (context != null) {
+            val apiNetworks = try { getSavedNetworksApi(context) } catch (_: Exception) { emptyList() }
+            if (apiNetworks.isNotEmpty()) {
+                Log.d(TAG, "Loaded " + apiNetworks.size + " networks via WifiManager API")
+                return apiNetworks
+            }
+        }
+
+        Log.w(TAG, buildString {
+            appendLine("Cannot read saved networks - all methods failed")
+            if (!ShellUtils.hasRoot()) appendLine("(no root)")
+            appendLine("Check: su -c 'cmd wifi list-networks' 2>&1")
+            appendLine("Check: su -c 'cat /data/misc/apexdata/com.android.wifi/WifiConfigStore.xml' 2>&1")
+        })
+        return emptyList()
+    }
+
+    private fun parseCmdWifiOutput(output: String, errorOutput: String? = null): List<SavedWifi> {
+        Log.d(TAG, "parseCmdWifiOutput: stdout=" + output.take(200) + if (errorOutput != null) " stderr=" + errorOutput.take(200) else "")
+        val seen = linkedSetOf<String>()
         val result = mutableListOf<SavedWifi>()
 
-        try {
-            @Suppress("DEPRECATION")
-            val configs: List<WifiConfiguration>? = wm.configuredNetworks
-            if (configs != null) {
-                for (cfg in configs) {
-                    val ssid = cleanSsid(cfg.SSID)
-                    val security = describeCapabilities(cfg)
-                    result.add(SavedWifi(ssid, cfg.BSSID, security))
+        for (line in output.lines()) {
+            val trimmed = line.trimStart()
+            if (trimmed.isBlank()) continue
+
+            val lower = trimmed.lowercase()
+            if (lower.startsWith("network id") || lower.startsWith("---") ||
+                lower.startsWith("ssid") || lower.startsWith("security")) continue
+
+            val parts = trimmed.split("\\s{2,}".toRegex())
+            if (parts.size < 2) continue
+
+            val ssidRaw = if (parts.size >= 3) {
+                parts.drop(1).dropLast(1).joinToString(" ").trim()
+            } else {
+                parts[1].trim()
+            }
+            val security = if (parts.size >= 3) parts.last().trim() else "Unknown"
+
+            val ssid = cleanSsid(ssidRaw)
+            if (ssid.isBlank() || ssid == "null" || ssid == "0x" || ssid == "<unknown ssid>") continue
+            if (ssid.length < 1 || !ssid.any { it.isLetterOrDigit() }) continue
+
+            if (ssid !in seen) {
+                seen.add(ssid)
+                result.add(SavedWifi(ssid, null, security))
+            }
+        }
+        return result
+    }
+
+    private fun getSavedNetworksCmd(): List<SavedWifi> {
+        // Try via su first (capture stderr too by not using 2>/dev/null)
+        if (ShellUtils.hasRoot()) {
+            val suResult = ShellUtils.executeSu("cmd wifi list-networks 2>&1", 5000)
+            if (suResult.isSuccess() && suResult.output.isNotBlank()) {
+                val parsed = parseCmdWifiOutput(suResult.output)
+                if (parsed.isNotEmpty()) return parsed
+            }
+            if (suResult.output.isNotBlank()) {
+                Log.w(TAG, "cmd wifi via su returned: " + suResult.output.take(200))
+            }
+            // 尝试用 shell 用户运行
+            val suShellResult = ShellUtils.executeSu("sh -c 'cmd wifi list-networks 2>&1'", 5000)
+            if (suShellResult.isSuccess() && suShellResult.output.isNotBlank()) {
+                val parsed = parseCmdWifiOutput(suShellResult.output)
+                if (parsed.isNotEmpty()) return parsed
+            }
+            if (suShellResult.output.isNotBlank()) {
+                Log.w(TAG, "cmd wifi via su/shell returned: " + suShellResult.output.take(200))
+            }
+        }
+        // Fallback: run as app process
+        val result = ShellUtils.execute("cmd wifi list-networks 2>&1", 3000)
+        if (result.isSuccess() && result.output.isNotBlank()) {
+            return parseCmdWifiOutput(result.output)
+        }
+        if (result.output.isNotBlank()) {
+            Log.w(TAG, "cmd wifi (app) returned: " + result.output.take(200))
+        }
+        return emptyList()
+    }
+
+    private fun getSavedNetworksRootXml(): List<SavedWifi> {
+        if (!ShellUtils.hasRoot()) return emptyList()
+        val configPaths = listOf(
+            "/data/misc/apexdata/com.android.wifi/WifiConfigStore.xml",
+            "/data/misc/wifi/WifiConfigStore.xml",
+            "/data/misc_ce/0/apexdata/com.android.wifi/WifiConfigStore.xml",
+            "/data/misc_ce/0/wifi/WifiConfigStore.xml",
+            "/data/misc/wifi/wpa_supplicant.conf",
+            "/data/vendor/wifi/WifiConfigStore.xml",
+            "/data/misc/apexdata/com.android.wifi/WifiConfigStoreSoftAp.xml"
+        )
+
+        val result = mutableMapOf<String, String>()
+        for (path in configPaths) {
+            val r = ShellUtils.executeSu("cat '" + path + "' 2>&1", 5000)
+            if (!r.isSuccess() || r.output.isBlank()) {
+                if (r.output.isNotBlank()) {
+                    Log.d(TAG, "Cannot read " + path + ": " + r.output.take(100))
+                }
+                continue
+            }
+            val xml = r.output
+
+            var found = extractSsidFromWifiConfigStoreXml(xml, result)
+            if (found > 0) {
+                Log.d(TAG, "XML " + path + ": found " + found + " SSIDs")
+            }
+
+            if (path.contains("NetworkList") && found == 0) {
+                // Try WifiConfigStore format with NetworkList element
+                found = extractSsidFromNetworkListXml(xml, result)
+                if (found > 0) {
+                    Log.d(TAG, "NetworkList XML " + path + ": found " + found + " SSIDs")
                 }
             }
-        } catch (_: SecurityException) {
-            /* Android 13+ restricts getConfiguredNetworks */
+
+            if (path.endsWith("wpa_supplicant.conf")) {
+                for (match in Regex("""ssid="([^"]+)""").findAll(xml)) {
+                    val s = cleanSsid(match.groupValues[1])
+                    if (s.isNotBlank() && s !in result) result[s] = "WPA"
+                }
+                if (result.isNotEmpty()) break
+                continue
+            }
+
+            // Also look for any SSID="..." pattern
+            for (match in Regex("""SSID\s*=\s*"([^"]+)"""").findAll(xml)) {
+                val s = cleanSsid(match.groupValues[1])
+                if (s.isNotBlank() && s !in result) result[s] = "Unknown"
+            }
+
+            if (result.isNotEmpty()) break
         }
 
-        if (result.isEmpty()) {
-            try {
-                @Suppress("DEPRECATION")
-                val scanResults: List<ScanResult> = wm.scanResults
-                for (sr in scanResults) {
-                    val ssid = cleanSsid(sr.SSID)
-                    if (ssid.isNotBlank()) {
-                        val security = describeScanResultCapabilities(sr)
-                        result.add(SavedWifi(ssid, sr.BSSID, security))
+        Log.d(TAG, "XML total: found " + result.size + " SSIDs: " + result.keys.joinToString(", "))
+        return result.map { SavedWifi(it.key, null, it.value) }
+    }
+
+    /** Parse WifiConfigStore.xml format (used on API 30+)
+     *  Returns number of SSIDs found and populates result map. */
+    private fun extractSsidFromWifiConfigStoreXml(xml: String, result: MutableMap<String, String>): Int {
+        var count = 0
+
+        // Pattern 1: <string name="SSID">"MyWiFi"</string>  (quoted)
+        for (match in Regex("""<string\s+name="SSID">(.*?)</string>""").findAll(xml)) {
+            var raw = match.groupValues[1].trim()
+            raw = raw.removeSurrounding("\"").removeSurrounding("'").trim()
+            val s = cleanSsid(raw)
+            if (s.isNotBlank() && s !in result) {
+                result[s] = detectSecurity(xml, s)
+                count++
+            }
+        }
+        if (count > 0) return count
+
+        // Pattern 2: <string name="SSID">&quot;MyWiFi&quot;</string>
+        for (match in Regex("""<string\s+name="SSID">&quot;(.*?)&quot;</string>""").findAll(xml)) {
+            val s = cleanSsid(match.groupValues[1])
+            if (s.isNotBlank() && s !in result) {
+                result[s] = detectSecurity(xml, s)
+                count++
+            }
+        }
+
+        // Pattern 3: SSID="FreeWiFi" (without quotes inside value)
+        for (match in Regex("""<string\s+name="SSID">([^<&]+)</string>""").findAll(xml)) {
+            val s = cleanSsid(match.groupValues[1])
+            if (s.isNotBlank() && s !in result) {
+                result[s] = detectSecurity(xml, s)
+                count++
+            }
+        }
+
+        return count
+    }
+
+    /** Try to detect security type for a given SSID from the WifiConfigStore XML */
+    private fun detectSecurity(xml: String, ssid: String): String {
+        // Find the WifiConfiguration block containing this SSID
+        val escapedSsid = ssid.replace("\"", "&quot;")
+        val ssidIndex = xml.indexOf(escapedSsid)
+        if (ssidIndex < 0) return "Unknown"
+
+        val blockStart = xml.lastIndexOf("<WifiConfiguration>", ssidIndex)
+        val blockEnd = if (blockStart >= 0) xml.indexOf("</WifiConfiguration>", blockStart) else -1
+        val block = if (blockStart >= 0 && blockEnd > blockStart)
+            xml.substring(blockStart, blockEnd) else xml
+
+        return when {
+            block.contains("KeyMgmt=NONE") || block.contains("KeyMgmt\" value=\"NONE") ||
+                block.contains("open") || block.contains("owe") -> "Open"
+            block.contains("SAE") || block.contains("sae") -> "WPA3"
+            block.contains("WPA2") || block.contains("PSK") || block.contains("psk") -> "WPA2"
+            block.contains("WPA") || block.contains("wpa") -> "WPA"
+            block.contains("WEP") || block.contains("wep") -> "WEP"
+            block.contains("SuiteB") || block.contains("suiteb") -> "SuiteB"
+            else -> "Unknown"
+        }
+    }
+
+    /** Alternative: extract from NetworkList XML format */
+    private fun extractSsidFromNetworkListXml(xml: String, result: MutableMap<String, String>): Int {
+        var count = 0
+        // Look for <Network SSID="xxx">
+        for (match in Regex("""<Network\s+SSID\s*=\s*"([^"]+)""").findAll(xml)) {
+            val s = cleanSsid(match.groupValues[1])
+            if (s.isNotBlank() && s !in result) {
+                result[s] = "Unknown"
+                count++
+            }
+        }
+        return count
+    }
+
+    /** Use WifiManager.getConfiguredNetworks() API (deprecated but works on API 30-35)
+     *  Requires ACCESS_FINE_LOCATION or NEARBY_WIFI_DEVICES permission. */
+    private fun getSavedNetworksApi(context: Context): List<SavedWifi> {
+        val wm = context.getSystemService(Context.WIFI_SERVICE) as? WifiManager ?: return emptyList()
+        val configs: List<WifiConfiguration> = try {
+            @Suppress("DEPRECATION")
+            wm.configuredNetworks.toList()
+        } catch (e: SecurityException) {
+            Log.w(TAG, "getConfiguredNetworks requires location permission: " + e.message)
+            return emptyList()
+        } catch (e: Exception) {
+            Log.w(TAG, "getConfiguredNetworks failed: " + e.message)
+            return emptyList()
+        }
+        if (configs.isEmpty()) return emptyList()
+
+        val seen = mutableSetOf<String>()
+        return configs.mapNotNull { config ->
+            val ssid = cleanSsid(config.SSID)
+            if (ssid.isBlank() || ssid in seen) return@mapNotNull null
+            seen.add(ssid)
+            val security = when {
+                config.allowedKeyManagement.get(android.net.wifi.WifiConfiguration.KeyMgmt.NONE) -> "Open"
+                else -> "Secured"
+            }
+            SavedWifi(ssid, config.BSSID, security)
+        }
+    }
+
+    private fun getSavedNetworksRootDumpsys(): List<SavedWifi> {
+        if (!ShellUtils.hasRoot()) return emptyList()
+        val result = ShellUtils.executeSu("dumpsys wifi 2>&1 | grep -i -E 'SSID[=:]|ssid=' | head -100", 3000)
+        if (!result.isSuccess() || result.output.isBlank()) return emptyList()
+        val seen = mutableSetOf<String>()
+        val networks = mutableListOf<SavedWifi>()
+        for (line in result.output.lines()) {
+            val trimmed = line.trim()
+            if (trimmed.isBlank()) continue
+            for (pattern in arrayOf(
+                Regex("""SSID[=:]\s*"?([^"\s,;]+)"""),
+                Regex("""ssid\s*=\s*"?([^"\s,;]+)"""))) {
+                val m = pattern.find(trimmed)
+                if (m != null) {
+                    val s = cleanSsid(m.groupValues[1])
+                    if (s.isNotBlank() && s !in seen && s != "null" && s != "0x" && s != "<unknown ssid>") {
+                        seen.add(s); networks.add(SavedWifi(s, null, "Unknown"))
                     }
                 }
-            } catch (_: SecurityException) {
-                /* no location permission */
             }
         }
-
-        return result.distinctBy { it.ssid }
+        return networks.toList()
     }
 
     fun getCurrentSsid(context: Context): String {
-        val wm = context.getSystemService(Context.WIFI_SERVICE) as? WifiManager
-            ?: return ""
+        val wm = context.getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager ?: return ""
         return try {
             @Suppress("DEPRECATION")
             val info = wm.connectionInfo
@@ -61,36 +322,50 @@ object WifiHelper {
     fun cleanSsid(ssid: String?): String {
         if (ssid == null) return ""
         var s = ssid.trim()
-        if (s.startsWith("\"") && s.endsWith("\"") && s.length >= 2) {
-            s = s.substring(1, s.length - 1)
-        }
-        if (s == "<unknown ssid>") return ""
+        if (s.startsWith("\"") && s.endsWith("\"") && s.length >= 2) s = s.substring(1, s.length - 1).trim()
+        if (s.startsWith("'") && s.endsWith("'") && s.length >= 2) s = s.substring(1, s.length - 1).trim()
+        if (s == "<unknown ssid>" || s == "0x" || s == "null" || s.isBlank()) return ""
         return s
     }
 
-    @Suppress("DEPRECATION")
-    private fun describeCapabilities(cfg: WifiConfiguration): String {
-        val cap = cfg.allowedKeyManagement
-        return when {
-            cap.get(WifiConfiguration.KeyMgmt.WPA_PSK) -> "WPA/WPA2"
-            cap.get(WifiConfiguration.KeyMgmt.SAE) -> "WPA3"
-            cap.get(WifiConfiguration.KeyMgmt.IEEE8021X) -> "802.1X"
-            cap.get(WifiConfiguration.KeyMgmt.WPA_EAP) -> "EAP"
-            cap.get(WifiConfiguration.KeyMgmt.NONE) && cfg.allowedAuthAlgorithms.get(WifiConfiguration.AuthAlgorithm.OPEN) -> "Open"
-            cap.get(WifiConfiguration.KeyMgmt.NONE) -> "WEP"
-            else -> "Unknown"
+    /** Get WiFi interface IPv4 address via root, falling back to WifiManager. */
+    fun getLocalIpAddress(context: Context): String {
+        // Fast root path
+        val r = ShellUtils.executeSu("ip -4 addr show wlan0 2>/dev/null | grep 'inet ' | awk '{print \$2}'", 2000)
+        if (r.isSuccess()) {
+            val ip = r.output.trim().removeSuffix("/24").removeSuffix("/16").trim()
+            if (ip.isNotEmpty() && !ip.startsWith("0.") && !ip.startsWith("127.")) return ip
         }
+        // Fallback via ifconfig
+        val r2 = ShellUtils.executeSu("ifconfig wlan0 2>/dev/null | grep 'inet addr' | awk -F: '{print \$2}' | awk '{print \$1}'", 2000)
+        if (r2.isSuccess()) {
+            val ip = r2.output.trim()
+            if (ip.isNotEmpty() && !ip.startsWith("0.") && !ip.startsWith("127.")) return ip
+        }
+        // Non-root fallback via WifiManager
+        try {
+            val wm = context.getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager ?: return ""
+            @Suppress("DEPRECATION")
+            val info = wm.connectionInfo ?: return ""
+            val ipInt = info.ipAddress ?: return ""
+            val ip = String.format("%d.%d.%d.%d",
+                ipInt and 0xff,
+                ipInt shr 8 and 0xff,
+                ipInt shr 16 and 0xff,
+                ipInt shr 24 and 0xff)
+            if (ip.isNotEmpty() && !ip.startsWith("0.") && !ip.startsWith("127.")) return ip
+        } catch (_: Exception) { }
+        return ""
     }
 
-    @Suppress("DEPRECATION")
-    private fun describeScanResultCapabilities(sr: ScanResult): String {
-        val cap = sr.capabilities ?: ""
-        return when {
-            cap.contains("WPA3") -> "WPA3"
-            cap.contains("WPA2") || cap.contains("WPA") -> "WPA/WPA2"
-            cap.contains("WEP") -> "WEP"
-            cap.contains("ESS") -> "Open"
-            else -> "Unknown"
-        }
+    /** Fetch public IP from api.ipify.org (IO-bound, call on background thread). */
+    fun getExternalIpAddress(): String {
+        return try {
+            val url = java.net.URL("https://api.ipify.org")
+            val conn = url.openConnection() as java.net.HttpURLConnection
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            conn.inputStream.bufferedReader().readText().trim()
+        } catch (_: Exception) { "" }
     }
 }

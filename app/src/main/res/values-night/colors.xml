@@ -1,4 +1,20 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="bg_card_night">#1E1E1E</color>
+    <color name="primary">#1565C0</color>
+    <color name="primary_dark">#0D47A1</color>
+    <color name="accent">#42A5F5</color>
+    <color name="bg_card">#121212</color>
+    <color name="text_primary">#E3E3E3</color>
+    <color name="text_secondary">#B0B0B0</color>
+    <color name="divider">#333333</color>
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="ic_launcher_bg">#1565C0</color>
+    <color name="ic_launcher_fg">#FFFFFF</color>
+    <color name="state_active_bg">#1B3B1F</color>
+    <color name="state_active_fg">#81C784</color>
+    <color name="state_inactive_bg">#3E2A12</color>
+    <color name="state_inactive_fg">#FFB74D</color>
+    <color name="state_unknown_bg">#3B1414</color>
+    <color name="state_unknown_fg">#EF9A9A</color>
 </resources>
