@@ -1,4 +1,4 @@
-name: Build & Release
+name: Build & Sync
 
 on:
   push:
@@ -8,7 +8,6 @@ on:
     branches: [main]
 
 jobs:
-  # ---- Debug build on every push/PR ----
   debug:
     name: Debug build
     runs-on: ubuntu-latest
@@ -26,66 +25,118 @@ jobs:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
 
-  # ---- Signed release on tag push (v*) ----
   release:
-    name: Signed release
+    name: Release + Sync to Xposed repo
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-java@v4
         with:
           distribution: microsoft
           java-version: 21
-
       - uses: gradle/actions/setup-gradle@v4
 
-      # Reconstruct keystore from secret
-      - name: Decode keystore
+      # Build signed APK (use secrets if available, otherwise generate CI key)
+      - name: Setup keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > adb_x.jks
-
-      # Write signing properties from secrets
-      - name: Write signing properties
-        run: |
-          cat > keystore.properties <<EOF
-          storePassword=${{ secrets.STOREPASSWORD }}
-          keyPassword=${{ secrets.KEYPASSWORD }}
-          keyAlias=${{ secrets.KEYALIAS }}
-          storeFile=adb_x.jks
-          EOF
+          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > adb_x.jks
+            cat > keystore.properties <<EOF
+            storePassword=${{ secrets.STOREPASSWORD }}
+            keyPassword=${{ secrets.KEYPASSWORD }}
+            keyAlias=${{ secrets.KEYALIAS }}
+            storeFile=adb_x.jks
+            EOF
+            echo "Using configured keystore"
+          else
+            # Generate temporary keystore for CI
+            keytool -genkey -v -keystore adb_x.jks -alias adb_x -keyalg RSA \
+              -keysize 2048 -validity 1 -storepass temp_pass -keypass temp_pass \
+              -dname "CN=CI, OU=ADB_X, O=ADB_X, L=Unknown, ST=Unknown, C=CN"
+            cat > keystore.properties <<EOF
+            storePassword=temp_pass
+            keyPassword=temp_pass
+            keyAlias=adb_x
+            storeFile=adb_x.jks
+            EOF
+            echo "Using temporary CI keystore"
+          fi
 
       - name: Build release APK
         run: ./gradlew assembleRelease
 
-      # Tag name = version (strip "v" prefix)
-      - name: Extract version
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+      # Extract version info from APK
+      - name: Extract version info
+        id: apk
+        run: |
+          AAPT=$(ls $ANDROID_SDK_ROOT/build-tools/**/aapt2 | tail -1)
+          BADGING=$($AAPT dump badging app/build/outputs/apk/release/app-release.apk | head -1)
+          VERCODE=$(echo "$BADGING" | sed -n "s/^package:.*versionCode='\([0-9]*\)'.*/\1/p")
+          VERNAME=$(echo "$BADGING" | sed -n "s/^package:.*versionName='\([^']*\)'.*/\1/p")
+          echo "versionCode=$VERCODE" >> "$GITHUB_OUTPUT"
+          echo "versionName=$VERNAME" >> "$GITHUB_OUTPUT"
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          name: ADB_X v${{ steps.version.outputs.version }}
+          name: ADB_X v${{ steps.apk.outputs.versionName }}
           body: |
-            ## ADB_X v${{ steps.version.outputs.version }}
+            ## ADB_X v${{ steps.apk.outputs.versionName }}
 
             Xposed module — wireless ADB enhancement.
 
             ### Features
-            - Fixed ADB port (set your own port, avoids random assignment)
+            - Fixed ADB port
             - Pairing code capture & display
-            - Trusted WiFi auto-enable / auto-disable
+            - Trusted WiFi auto-enable (system_server hook)
             - Connection watchdog
-            - Internal & external IP display
-            - Tap to copy IP:port
-
-            ### Install
-            1. Install the APK
-            2. Enable in LSPosed Manager
-            3. Scope: `android` + `com.android.settings`
-            4. Reboot
+            - Material 3 UI
           files: app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false
+
+      # ---- Sync to Xposed Module Repository ----
+      - name: Checkout Xposed repo
+        uses: actions/checkout@v4
+        with:
+          repository: Xposed-Modules-Repo/top.cbug.adbx
+          token: ${{ secrets.XPOSED_TOKEN }}
+          path: xposed_repo
+
+      - name: Sync APK + metadata to Xposed repo
+        run: |
+          VC=${{ steps.apk.outputs.versionCode }}
+          VN=${{ steps.apk.outputs.versionName }}
+
+          # APK in version-code directory
+          mkdir -p xposed_repo/$VC
+          cp app/build/outputs/apk/release/app-release.apk \
+             xposed_repo/$VC/top.cbug.adbx_$VC.apk
+
+          # module.prop (update version info)
+          cat > xposed_repo/module.prop << PROPEOF
+          #
+          # ADB_X - Xposed module for wireless ADB enhancement
+          # https://github.com/blockman3063/ADB_X
+          #
+          name=ADB_X
+          package=top.cbug.adbx
+          author=blockman3063
+          description=无线ADB调试增强模块: 固定端口，配对码，信任WiFi自动开启
+          version=$VN
+          versionCode=$VC
+          minSdk=30
+          maxSdk=36
+          PROPEOF
+
+          # changelog (append)
+          echo "- Release v$VN" >> xposed_repo/changelog.txt
+
+          # Commit & push
+          cd xposed_repo
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "Sync v$VN from blockman3063/ADB_X"
+          git push

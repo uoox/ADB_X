@@ -23,3 +23,5 @@ local.properties
 /adb_x.jks
 /keystore.properties
 /adb_x.b64.txt
+# Xposed repo staging (local mirror)
+/.xposed_repo
