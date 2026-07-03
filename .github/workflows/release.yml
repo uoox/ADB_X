@@ -59,6 +59,7 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk ADB_X-release.apk
 
       - name: Extract version info
         id: apk
@@ -77,7 +78,7 @@ jobs:
           body: |
             ## ADB_X v${{ steps.apk.outputs.versionName }}
             Xposed module — wireless ADB enhancement.
-          files: app/build/outputs/apk/release/app-release.apk
+          files: ADB_X-release.apk
           draft: false
           prerelease: false
 
