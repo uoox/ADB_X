@@ -1,0 +1,12 @@
+#
+# ADB_X - Xposed module for wireless ADB enhancement
+# https://github.com/blockman3063/ADB_X
+#
+name=ADB_X
+package=top.cbug.adbx
+author=blockman3063
+description=无线ADB调试增强模块: 固定端口，配对码，信任WiFi自动开启
+version=1.0.0
+versionCode=1
+minSdk=30
+maxSdk=36
