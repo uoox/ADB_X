@@ -66,6 +66,10 @@ jobs:
           BADGING=$($AAPT dump badging app/build/outputs/apk/release/app-release.apk | head -1)
           VERCODE=$(echo "$BADGING" | sed -n "s/^package:.*versionCode='\([0-9]*\)'.*/\1/p")
           VERNAME=$(echo "$BADGING" | sed -n "s/^package:.*versionName='\([^']*\)'.*/\1/p")
+          # VersionCode must change every release — immutable-release tag
+          # protection blocks reusing a tag. We append the CI run number to
+          # the manifest versionCode so the LSPosed tag stays unique.
+          VERCODE="${VERCODE}${GITHUB_RUN_NUMBER}"
           echo "versionCode=$VERCODE" >> "$GITHUB_OUTPUT"
           echo "versionName=$VERNAME" >> "$GITHUB_OUTPUT"
 
@@ -105,7 +109,7 @@ jobs:
           name=ADB_X
           package=top.cbug.adbx
           author=blockman3063
-          description=无线ADB调试增强模块: 固定端口，配对码，信任WiFi自动开启
+          description=ADB_X - 无线ADB调试增强 Xposed 模块。固定端口、配对码捕获、信任WiFi自动开启无线ADB。
           version=$VN
           versionCode=$VC
           minSdk=30
@@ -131,9 +135,11 @@ jobs:
           VN: ${{ steps.apk.outputs.versionName }}
         run: |
           cp xposed_mirror/$VC/top.cbug.adbx_$VC.apk ./adb_x_v$VN.apk
-          # Use a unique tag to avoid conflicts with immutable existing releases.
-          # Format: <version>-<run_id>
-          TAG_NAME="$VN-${{ github.run_id }}"
+          # Tag must match LSPosed repo indexer regex /^\d+-.+$/ — leading
+          # digits, then a dash, then anything. versionCode is a pure int;
+          # versionName may contain dots. This avoids the immutable-release
+          # tag-reuse block and keeps modules.lsposed.org indexing the build.
+          TAG_NAME="$VC-$VN"
 
           # Create as DRAFT first so we can upload asset before lock
           DRAFT_RESPONSE=$(curl -s -X POST \
