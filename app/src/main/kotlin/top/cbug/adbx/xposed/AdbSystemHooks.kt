@@ -172,6 +172,7 @@ object AdbSystemHooks {
         val autoEnable: Boolean = true,
         val autoDisable: Boolean = false,
         val bootStart: Boolean = true,
+        val locale: String = "system",
         val fixedPortEnabled: Boolean = false,
         val fixedPort: Int = 5555,
         val trustedSsids: Set<String> = emptySet()
@@ -190,6 +191,7 @@ object AdbSystemHooks {
                 autoEnable = map.getOrDefault("auto_enable", "true").toBooleanStrictOrNull() ?: true,
                 autoDisable = map.getOrDefault("auto_disable", "false").toBooleanStrictOrNull() ?: false,
                 bootStart = map.getOrDefault("boot_start", "true").toBooleanStrictOrNull() ?: true,
+                locale = map.getOrDefault("locale", "system"),
                 fixedPortEnabled = map.getOrDefault("fixed_port_enabled", "false").toBooleanStrictOrNull() ?: false,
                 fixedPort = map.getOrDefault("fixed_port", "5555").toIntOrNull() ?: 5555,
                 trustedSsids = map.getOrDefault("trusted_ssids", "")

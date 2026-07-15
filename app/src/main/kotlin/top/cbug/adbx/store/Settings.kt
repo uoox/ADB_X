@@ -1,4 +1,3 @@
-<!-- auto-fix: 5 TODO/FIXME markers here, reviewed 2026-07-15 -->
 package top.cbug.adbx.store
 
 import android.content.Context
@@ -16,6 +15,7 @@ object Settings {
     private const val KEY_AUTO_ENABLE = "auto_enable"
     private const val KEY_AUTO_DISABLE = "auto_disable"
     private const val KEY_BOOT_START = "boot_start"
+    private const val KEY_LOCALE = "locale"
 
     private fun prefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -25,6 +25,7 @@ object Settings {
     @Volatile var autoEnable = true
     @Volatile var autoDisable = false
     @Volatile var bootStart = true
+    @Volatile var locale: String = "system"   // "system" | "en" | "zh"
 
     private var trustedSsids: MutableSet<String> = mutableSetOf()
 
@@ -39,6 +40,7 @@ object Settings {
         autoEnable = p.getBoolean(KEY_AUTO_ENABLE, true)
         autoDisable = p.getBoolean(KEY_AUTO_DISABLE, false)
         bootStart = p.getBoolean(KEY_BOOT_START, true)
+        locale = p.getString(KEY_LOCALE, "system") ?: "system"
         trustedSsids = p.getStringSet(KEY_TRUSTED_SSIDS, emptySet())!!.toMutableSet()
     }
 
@@ -82,6 +84,7 @@ object Settings {
             .putBoolean(KEY_AUTO_ENABLE, autoEnable)
             .putBoolean(KEY_AUTO_DISABLE, autoDisable)
             .putBoolean(KEY_BOOT_START, bootStart)
+            .putString(KEY_LOCALE, locale)
             .putStringSet(KEY_TRUSTED_SSIDS, trustedSsids)
             .apply()
         // Defer config sync to background thread to avoid su blocking main thread
@@ -99,6 +102,7 @@ object Settings {
             appendLine("auto_enable=" + autoEnable)
             appendLine("auto_disable=" + autoDisable)
             appendLine("boot_start=" + bootStart)
+            appendLine("locale=" + locale)
             appendLine("trusted_ssids=" + trustedSsids.joinToString(","))
         }
         try {
