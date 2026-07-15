@@ -58,6 +58,11 @@ object ShellUtils {
         }.getOrDefault(false)
     }
 
+    /**
+     * TODO: document execute
+     * @param String
+     * @param 2000
+     */
     fun execute(command: String, timeoutMs: Long = 2000): Result {
         return try {
             val proc = ProcessBuilder("/system/bin/sh", "-c", command)
@@ -114,6 +119,10 @@ object ShellUtils {
         }
     }
 
+    /**
+     * TODO: document probeRoot
+     * @param false
+     */
     fun probeRoot(forceRefresh: Boolean = false): Boolean {
         val now = System.currentTimeMillis()
         if (!forceRefresh && rootChecked && (now - lastRootCheckMs) < ROOT_CACHE_TTL_MS) {
@@ -153,6 +162,10 @@ object ShellUtils {
         return false
     }
 
+    /**
+     * TODO: document hasRoot
+     * @param false
+     */
     fun hasRoot(forceRefresh: Boolean = false): Boolean {
         val now = System.currentTimeMillis()
         if (!forceRefresh && rootChecked && (now - lastRootCheckMs) < ROOT_CACHE_TTL_MS) {

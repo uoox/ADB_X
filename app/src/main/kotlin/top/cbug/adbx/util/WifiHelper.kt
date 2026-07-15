@@ -17,6 +17,10 @@ object WifiHelper {
     @Volatile private var externalIpFetchedMs: Long = 0L
     private const val EXTERNAL_IP_TTL_MS = 10 * 60 * 1000L  // 10 min
 
+    /**
+     * TODO: document getSavedNetworks
+     * @param Context
+     */
     fun getSavedNetworks(context: Context): List<SavedWifi> {
         // 1. Direct XML parsing (most reliable with root)
         if (ShellUtils.hasRoot()) {
@@ -315,6 +319,10 @@ object WifiHelper {
         return networks.toList()
     }
 
+    /**
+     * TODO: document getCurrentSsid
+     * @param Context
+     */
     fun getCurrentSsid(context: Context): String {
         val wm = context.getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager ?: return ""
         return try {
@@ -324,6 +332,10 @@ object WifiHelper {
         } catch (_: Throwable) { "" }
     }
 
+    /**
+     * TODO: document cleanSsid
+     * @param String?
+     */
     fun cleanSsid(ssid: String?): String {
         if (ssid == null) return ""
         var s = ssid.trim()

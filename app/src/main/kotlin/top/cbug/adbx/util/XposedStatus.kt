@@ -36,9 +36,19 @@ object XposedStatus {
     @Volatile
     private var loadedIntoSelf: Boolean = false
 
+    /**
+     * TODO: document markActive
+     */
     fun markActive() { loadedIntoSelf = true }
+    /**
+     * TODO: document reset
+     */
     fun reset() { loadedIntoSelf = false }
 
+    /**
+     * TODO: document probe
+     * @param Context
+     */
     fun probe(context: Context): Info {
         // 1) Definitive: did the framework actually inject into us?
         if (loadedIntoSelf || hasInjectedIntoSelf()) {

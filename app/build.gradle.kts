@@ -66,3 +66,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.3")
     implementation("androidx.preference:preference-ktx:1.2.1")
 }
+
+
+// auto-fix: added stub test task (was missing). Replace with real JUnit/Robolectric tests.
+tasks.withType<Test> {
+    useJUnit()
+}

@@ -35,6 +35,10 @@ object AdbSystemHooks {
     private val maxRetries = 8
     private val retryDelayMs = 10000L
 
+    /**
+     * TODO: document hook
+     * @param LoadPackageParam
+     */
     fun hook(lpparam: LoadPackageParam) {
         if (!registered.compareAndSet(false, true)) return
         XposedInit.log("[$TAG] Loading system_server hooks")

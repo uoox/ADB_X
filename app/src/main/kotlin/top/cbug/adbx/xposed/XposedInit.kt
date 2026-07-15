@@ -10,10 +10,18 @@ class XposedInit : IXposedHookLoadPackage {
         const val MODULE_PACKAGE = "top.cbug.adbx"
         const val TAG = "ADB_X"
 
+        /**
+         * TODO: document log
+         * @param String
+         */
         fun log(msg: String) {
             XposedBridge.log("[$TAG] $msg")
         }
 
+        /**
+         * TODO: document log
+         * @param Throwable
+         */
         fun log(t: Throwable) {
             XposedBridge.log(t)
         }

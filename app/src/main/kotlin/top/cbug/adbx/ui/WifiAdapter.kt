@@ -22,6 +22,10 @@ class WifiAdapter(
         val swTrusted: MaterialSwitch = view.findViewById(R.id.swTrusted)
     }
 
+    /**
+     * TODO: document update
+     * @param List<WifiItem>
+     */
     fun update(newItems: List<WifiItem>) {
         items.clear()
         items.addAll(newItems)
