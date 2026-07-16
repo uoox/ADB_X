@@ -38,6 +38,13 @@
             android:parentActivityName=".MainActivity"
             android:configChanges="orientation|screenSize" />
 
+        <activity
+            android:name=".ui.WifiSettingsActivity"
+            android:exported="false"
+            android:label="@string/wifi_settings_title"
+            android:parentActivityName=".MainActivity"
+            android:configChanges="orientation|screenSize" />
+
        <receiver
            android:name=".BootReceiver"
            android:exported="true">

@@ -39,6 +39,7 @@ import top.cbug.adbx.ui.SettingsFragment
 import top.cbug.adbx.ui.StatusFragment
 import top.cbug.adbx.ui.WifiAdapter
 import top.cbug.adbx.ui.WifiItem
+import top.cbug.adbx.ui.WifiSettingsActivity
 import top.cbug.adbx.util.AdbHelper
 import top.cbug.adbx.util.LocaleHelper
 import top.cbug.adbx.util.ShellUtils
@@ -283,9 +284,9 @@ class MainActivity : AppCompatActivity() {
                 ShellUtils.probeRootFast()
                 val networks = WifiHelper.getSavedNetworks(this@MainActivity)
                 val items = networks.map { WifiItem(it.ssid, it.bssid, it.security) }
-                withContext(Dispatchers.Main) {
-                    pushWifiToActiveFragment(items)
-                }
+                // List now lives in WifiSettingsActivity; nothing to
+                // push back to NetworkFragment on the tab itself.
+                withContext(Dispatchers.Main) { }
             } catch (t: Throwable) {
                 Log.w(TAG, "refreshWifiList failed", t)
                 withContext(Dispatchers.Main) {
@@ -295,11 +296,6 @@ class MainActivity : AppCompatActivity() {
                 refreshInProgress = false
             }
         }
-    }
-
-    private fun pushWifiToActiveFragment(items: List<WifiItem>) {
-        val frag = supportFragmentManager.findFragmentById(R.id.nav_host) ?: return
-        if (frag is NetworkFragment) frag.onNetworksLoaded(items)
     }
 
     // ---------------- Port apply ----------------
@@ -341,6 +337,10 @@ class MainActivity : AppCompatActivity() {
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    fun openWifiSettingsActivity() {
+        startActivity(Intent(this, WifiSettingsActivity::class.java))
     }
 
     fun openPairingActivity() {

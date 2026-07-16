@@ -20,7 +20,11 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            app:cardCornerRadius="16dp">
+            app:cardCornerRadius="16dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:foreground="?attr/selectableItemBackground"
+            android:id="@+id/cardWifiList">
 
             <LinearLayout
                 android:layout_width="match_parent"
@@ -38,16 +42,14 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="@string/section_wifi"
+                        android:text="@string/wifi_manage"
                         android:textAppearance="?attr/textAppearanceTitleMedium" />
 
-                    <TextView
-                        android:id="@+id/tvWifiCount"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:textAppearance="?attr/textAppearanceBodyMedium"
-                        android:textColor="?attr/colorOnSurfaceVariant"
-                        tools:text="12 networks" />
+                    <ImageView
+                        android:layout_width="24dp"
+                        android:layout_height="24dp"
+                        android:src="@drawable/ic_chevron_right"
+                        app:tint="?attr/colorOnSurfaceVariant" />
                 </LinearLayout>
 
                 <com.google.android.material.chip.ChipGroup
@@ -79,13 +81,7 @@
                     android:visibility="gone"
                     tools:visibility="visible" />
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvWifi"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:maxHeight="320dp"
-                    android:nestedScrollingEnabled="false" />
+                
 
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>

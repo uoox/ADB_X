@@ -6,9 +6,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.materialswitch.MaterialSwitch
@@ -19,21 +18,16 @@ import top.cbug.adbx.R
 import top.cbug.adbx.store.Settings as AppSettings
 
 /**
- * Networks tab — saved WiFi + fixed port + copy-address.
- *
- * Merges the previous WiFi tab and Port tab into a single scrollable
- * page. Auto-refreshes the WiFi list once on first resume so users
- * land on populated content. Port controls save to Settings and
- * delegate the actual `setprop` call to MainActivity.
+ * Networks tab — fixed port + IP address card, plus a "Manage Wi-Fi"
+ * shortcut that opens the full list with search + sort in a dedicated
+ * activity (WifiSettingsActivity). The list itself no longer lives
+ * here — the tab is the entry point, not the table.
  */
 class NetworkFragment : Fragment() {
 
     private lateinit var cgTrusted: ChipGroup
     private lateinit var btnRefreshWifi: MaterialButton
-    private lateinit var rvWifi: RecyclerView
-    private lateinit var tvWifiCount: TextView
-    private lateinit var tvWifiEmpty: TextView
-
+    private lateinit var cardWifiList: MaterialCardView
     private lateinit var swFixedPort: MaterialSwitch
     private lateinit var tilPort: TextInputLayout
     private lateinit var etPort: TextInputEditText
@@ -41,7 +35,6 @@ class NetworkFragment : Fragment() {
     private lateinit var tvAddress: TextView
     private lateinit var btnCopyAddress: MaterialButton
 
-    private val wifiAdapter = WifiAdapter()
     private var firstResume = true
 
     override fun onCreateView(
@@ -50,13 +43,9 @@ class NetworkFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-
         cgTrusted      = view.findViewById(R.id.cgTrusted)
         btnRefreshWifi = view.findViewById(R.id.btnRefreshWifi)
-        rvWifi         = view.findViewById(R.id.rvWifi)
-        tvWifiCount    = view.findViewById(R.id.tvWifiCount)
-        tvWifiEmpty    = view.findViewById(R.id.tvWifiEmpty)
-
+        cardWifiList   = view.findViewById(R.id.cardWifiList)
         swFixedPort    = view.findViewById(R.id.swFixedPort)
         tilPort        = view.findViewById(R.id.tilPort)
         etPort         = view.findViewById(R.id.etPort)
@@ -64,14 +53,14 @@ class NetworkFragment : Fragment() {
         tvAddress      = view.findViewById(R.id.tvAddress)
         btnCopyAddress = view.findViewById(R.id.btnCopyAddress)
 
-        rvWifi.layoutManager = LinearLayoutManager(requireContext())
-        rvWifi.adapter = wifiAdapter
-
         AppSettings.load(requireContext())
         renderTrustedChips()
         renderPortControls()
         renderAddress()
 
+        cardWifiList.setOnClickListener {
+            (activity as? MainActivity)?.openWifiSettingsActivity()
+        }
         btnRefreshWifi.setOnClickListener {
             (activity as? MainActivity)?.requestNeededPermissions()
             (activity as? MainActivity)?.refreshWifiList()
@@ -110,19 +99,12 @@ class NetworkFragment : Fragment() {
                 act.toast(getString(R.string.msg_copied, text))
             }
         }
-
-        wifiAdapter.onToggleTrusted = { ssid, trusted ->
-            if (trusted) AppSettings.addTrusted(ssid) else AppSettings.removeTrusted(ssid)
-            AppSettings.save(requireContext())
-            renderTrustedChips()
-        }
     }
 
     override fun onResume() {
         super.onResume()
         AppSettings.load(requireContext())
         renderTrustedChips()
-        wifiAdapter.refresh(AppSettings.trustedSet())
         renderPortControls()
         renderAddress()
 
@@ -132,39 +114,6 @@ class NetworkFragment : Fragment() {
             act.requestNeededPermissions()
             act.refreshWifiList()
         }
-    }
-
-    /** Called by MainActivity when wifi scan finishes. */
-    fun onNetworksLoaded(countOrItems: Any) {
-        if (!isAdded) return
-        // Backwards-compat: this used to take Int (count only). MainActivity
-        // now passes the actual items so the fragment can update its own
-        // adapter — see companion MainActivity.wifiAdapter removal.
-        val items: List<WifiItem> = when (countOrItems) {
-            is Int -> {
-                // Just a count — refresh the empty-state visibility but don't
-                // touch the list (the previous adapter is still valid).
-                updateCount(countOrItems)
-                return
-            }
-            is List<*> -> {
-                @Suppress("UNCHECKED_CAST")
-                countOrItems as List<WifiItem>
-            }
-            else -> return
-        }
-        wifiAdapter.update(items)
-        updateCount(items.size)
-    }
-
-    fun updateCount(count: Int) {
-        tvWifiCount.text = getString(R.string.wifi_count_label, count)
-        tvWifiEmpty.visibility = if (count == 0) View.VISIBLE else View.GONE
-    }
-
-    private fun renderPortControls() {
-        swFixedPort.isChecked = AppSettings.fixedPortEnabled
-        etPort.setText(AppSettings.fixedPort.toString())
     }
 
     private fun renderTrustedChips() {
@@ -178,11 +127,15 @@ class NetworkFragment : Fragment() {
                     AppSettings.removeTrusted(ssid)
                     AppSettings.save(requireContext())
                     renderTrustedChips()
-                    wifiAdapter.refresh(AppSettings.trustedSet())
                 }
             }
             cgTrusted.addView(chip)
         }
+    }
+
+    private fun renderPortControls() {
+        swFixedPort.isChecked = AppSettings.fixedPortEnabled
+        etPort.setText(AppSettings.fixedPort.toString())
     }
 
     private fun renderAddress() {

@@ -16,6 +16,7 @@ object Settings {
     private const val KEY_AUTO_DISABLE = "auto_disable"
     private const val KEY_BOOT_START = "boot_start"
     private const val KEY_LOCALE = "locale"
+    private const val KEY_WIFI_SORT = "wifi_sort"
 
     private fun prefs(context: Context): SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -25,7 +26,8 @@ object Settings {
     @Volatile var autoEnable = true
     @Volatile var autoDisable = false
     @Volatile var bootStart = true
-    @Volatile var locale: String = "system"   // "system" | "en" | "zh"
+    @Volatile var locale: String = "system"
+    @Volatile var wifiSortMode: Int = 1   // "system" | "en" | "zh"
 
     private var trustedSsids: MutableSet<String> = mutableSetOf()
 
@@ -41,6 +43,7 @@ object Settings {
         autoDisable = p.getBoolean(KEY_AUTO_DISABLE, false)
         bootStart = p.getBoolean(KEY_BOOT_START, true)
         locale = p.getString(KEY_LOCALE, "system") ?: "system"
+        wifiSortMode = p.getInt(KEY_WIFI_SORT, 1)
         trustedSsids = p.getStringSet(KEY_TRUSTED_SSIDS, emptySet())!!.toMutableSet()
     }
 
@@ -85,6 +88,7 @@ object Settings {
             .putBoolean(KEY_AUTO_DISABLE, autoDisable)
             .putBoolean(KEY_BOOT_START, bootStart)
             .putString(KEY_LOCALE, locale)
+            .putInt(KEY_WIFI_SORT, wifiSortMode)
             .putStringSet(KEY_TRUSTED_SSIDS, trustedSsids)
             .apply()
         // Defer config sync to background thread to avoid su blocking main thread
@@ -103,6 +107,7 @@ object Settings {
             appendLine("auto_disable=" + autoDisable)
             appendLine("boot_start=" + bootStart)
             appendLine("locale=" + locale)
+            appendLine("wifi_sort=" + wifiSortMode)
             appendLine("trusted_ssids=" + trustedSsids.joinToString(","))
         }
         try {

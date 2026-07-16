@@ -51,6 +51,15 @@
     <string name="sw_auto_enable">Auto-enable on trusted WiFi</string>
     <string name="sw_auto_disable">Auto-disable on disconnect</string>
     <string name="sw_boot_start">Start on boot</string>
+    <string name="wifi_settings_title">Wi-Fi settings</string>
+    <string name="wifi_search_hint">Search networks</string>
+    <string name="wifi_no_match">No matching networks</string>
+    <string name="wifi_sort">Sort</string>
+    <string name="wifi_sort_alpha">Alphabetical</string>
+    <string name="wifi_sort_signal">Signal</string>
+    <string name="wifi_sort_recent">Recent</string>
+    <string name="wifi_manage">Manage Wi-Fi</string>
+    <string name="wifi_summary_fmt">Showing %1$d of %2$d</string>
     <string name="section_wifi">Saved WiFi networks</string>
     <string name="btn_refresh_wifi">Refresh list</string>
     <string name="wifi_empty_hint">No saved networks yet. Tap refresh to scan.</string>
