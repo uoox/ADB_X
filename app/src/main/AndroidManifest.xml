@@ -31,6 +31,13 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".PairingActivity"
+            android:exported="false"
+            android:label="@string/section_pairing_code"
+            android:parentActivityName=".MainActivity"
+            android:configChanges="orientation|screenSize" />
+
        <receiver
            android:name=".BootReceiver"
            android:exported="true">

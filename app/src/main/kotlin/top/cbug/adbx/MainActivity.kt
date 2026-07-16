@@ -6,6 +6,7 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.DialogInterface
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
@@ -33,11 +34,10 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import top.cbug.adbx.store.Settings as AppSettings
-import top.cbug.adbx.ui.PortFragment
+import top.cbug.adbx.ui.NetworkFragment
 import top.cbug.adbx.ui.SettingsFragment
 import top.cbug.adbx.ui.StatusFragment
 import top.cbug.adbx.ui.WifiAdapter
-import top.cbug.adbx.ui.WiFiFragment
 import top.cbug.adbx.ui.WifiItem
 import top.cbug.adbx.util.AdbHelper
 import top.cbug.adbx.util.LocaleHelper
@@ -121,8 +121,8 @@ class MainActivity : AppCompatActivity() {
             bottomNav.setOnItemSelectedListener { item ->
                 switchTo(when (item.itemId) {
                     R.id.tab_status   -> StatusFragment()
-                    R.id.tab_port     -> PortFragment()
-                    R.id.tab_wifi     -> WiFiFragment()
+                    R.id.tab_networks -> NetworkFragment()
+                    R.id.tab_networks -> NetworkFragment()
                     R.id.tab_settings -> SettingsFragment()
                     else               -> StatusFragment()
                 })
@@ -300,7 +300,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun pushWifiToActiveFragment(count: Int) {
         val frag = supportFragmentManager.findFragmentById(R.id.nav_host) ?: return
-        if (frag is WiFiFragment) frag.onNetworksLoaded(count)
+        if (frag is NetworkFragment) frag.onNetworksLoaded(count)
     }
 
     // ---------------- Port apply ----------------
@@ -342,6 +342,10 @@ class MainActivity : AppCompatActivity() {
             }
             .setNegativeButton(android.R.string.cancel, null)
             .show()
+    }
+
+    fun openPairingActivity() {
+        startActivity(Intent(this, PairingActivity::class.java))
     }
 
     fun showXposedHelpDialog() {

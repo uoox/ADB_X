@@ -55,9 +55,8 @@ class StatusFragment : Fragment() {
     private lateinit var btnEnableAdb: MaterialButton
     private lateinit var btnDisableAdb: MaterialButton
 
-    private lateinit var tvPairingCode: TextView
-    private lateinit var btnPairingCode: MaterialButton
-    private lateinit var btnSetPairingCode: MaterialButton
+    private lateinit var cardPairingShortcut: com.google.android.material.card.MaterialCardView
+    private lateinit var tvPairingHint: TextView
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -80,9 +79,8 @@ class StatusFragment : Fragment() {
         btnEnableAdb = view.findViewById(R.id.btnEnableAdb)
         btnDisableAdb = view.findViewById(R.id.btnDisableAdb)
 
-        tvPairingCode     = view.findViewById(R.id.tvPairingCode)
-        btnPairingCode    = view.findViewById(R.id.btnPairingCode)
-        btnSetPairingCode = view.findViewById(R.id.btnSetPairingCode)
+        cardPairingShortcut = view.findViewById(R.id.cardPairingShortcut)
+        tvPairingHint       = view.findViewById(R.id.tvPairingHint)
 
         siAdb.setLabel(getString(R.string.si_label_adb))
         siPairing.setLabel(getString(R.string.si_label_pairing))
@@ -93,7 +91,7 @@ class StatusFragment : Fragment() {
             si.setState(StatusIndicatorView.State.UNKNOWN)
             si.setValue(getString(R.string.si_value_loading))
         }
-        tvPairingCode.text = "—"
+        tvPairingHint.text = getString(R.string.si_value_loading)
 
         setupListeners()
     }
@@ -194,8 +192,17 @@ class StatusFragment : Fragment() {
             else getString(R.string.si_value_unavailable)
         )
 
-        // Pairing code box
-        tvPairingCode.text = if (m.pairingCode.isNotBlank()) m.pairingCode else "—"
+        // Pairing code shortcut — line below the indicators
+        val code = m.pairingCode
+        tvPairingHint.text = if (code.isNotBlank()) {
+            getString(R.string.si_value_pairing_code, code)
+        } else if (m.pairingPort.isNotBlank()) {
+            getString(R.string.si_value_pairing_active, m.pairingPort)
+        } else if (m.adbState) {
+            getString(R.string.si_value_pairing_idle)
+        } else {
+            "—"
+        }
     }
 
     private fun setupListeners() {
@@ -220,7 +227,7 @@ class StatusFragment : Fragment() {
             }
         }
 
-        btnPairingCode.setOnClickListener { act.doFullRefresh() }
-        btnSetPairingCode.setOnClickListener { act.showSetPairingDialog() }
+        // Pairing shortcut opens the dedicated PairingActivity
+        cardPairingShortcut.setOnClickListener { act.openPairingActivity() }
     }
 }
