@@ -64,7 +64,6 @@ class MainActivity : AppCompatActivity() {
 
     val bgScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     val mainHandler = Handler(Looper.getMainLooper())
-    private val wifiAdapter = WifiAdapter()
     private var refreshInProgress = false
 
     // Cached values for click-to-copy + cross-fragment reads.
@@ -285,8 +284,7 @@ class MainActivity : AppCompatActivity() {
                 val networks = WifiHelper.getSavedNetworks(this@MainActivity)
                 val items = networks.map { WifiItem(it.ssid, it.bssid, it.security) }
                 withContext(Dispatchers.Main) {
-                    wifiAdapter.update(items)
-                    pushWifiToActiveFragment(items.size)
+                    pushWifiToActiveFragment(items)
                 }
             } catch (t: Throwable) {
                 Log.w(TAG, "refreshWifiList failed", t)
@@ -299,9 +297,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun pushWifiToActiveFragment(count: Int) {
+    private fun pushWifiToActiveFragment(items: List<WifiItem>) {
         val frag = supportFragmentManager.findFragmentById(R.id.nav_host) ?: return
-        if (frag is NetworkFragment) frag.onNetworksLoaded(count)
+        if (frag is NetworkFragment) frag.onNetworksLoaded(items)
     }
 
     // ---------------- Port apply ----------------

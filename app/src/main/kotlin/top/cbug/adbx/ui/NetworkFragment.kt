@@ -135,10 +135,36 @@ class NetworkFragment : Fragment() {
     }
 
     /** Called by MainActivity when wifi scan finishes. */
-    fun onNetworksLoaded(count: Int) {
+    fun onNetworksLoaded(countOrItems: Any) {
         if (!isAdded) return
+        // Backwards-compat: this used to take Int (count only). MainActivity
+        // now passes the actual items so the fragment can update its own
+        // adapter — see companion MainActivity.wifiAdapter removal.
+        val items: List<WifiItem> = when (countOrItems) {
+            is Int -> {
+                // Just a count — refresh the empty-state visibility but don't
+                // touch the list (the previous adapter is still valid).
+                updateCount(countOrItems)
+                return
+            }
+            is List<*> -> {
+                @Suppress("UNCHECKED_CAST")
+                countOrItems as List<WifiItem>
+            }
+            else -> return
+        }
+        wifiAdapter.update(items)
+        updateCount(items.size)
+    }
+
+    fun updateCount(count: Int) {
         tvWifiCount.text = getString(R.string.wifi_count_label, count)
         tvWifiEmpty.visibility = if (count == 0) View.VISIBLE else View.GONE
+    }
+
+    private fun renderPortControls() {
+        swFixedPort.isChecked = AppSettings.fixedPortEnabled
+        etPort.setText(AppSettings.fixedPort.toString())
     }
 
     private fun renderTrustedChips() {
@@ -157,11 +183,6 @@ class NetworkFragment : Fragment() {
             }
             cgTrusted.addView(chip)
         }
-    }
-
-    private fun renderPortControls() {
-        swFixedPort.isChecked = AppSettings.fixedPortEnabled
-        etPort.setText(AppSettings.fixedPort.toString())
     }
 
     private fun renderAddress() {
