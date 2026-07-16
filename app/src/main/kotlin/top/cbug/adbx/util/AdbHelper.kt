@@ -208,9 +208,23 @@ object AdbHelper {
     }
 
     /**
-     * TODO: document getPairingPort
+     * Read the temporary ADB pairing port. On Android 14+ the port
+     * lives only in adbd's memory; our LSPosed hook writes it to
+     * /data/local/tmp/adb_x_pairing_port when it can. As a fallback
+     * (and on older ROMs) we check service.adb.tls.port — but that
+     * is usually the main ADB port, not the pairing port.
      */
     fun getPairingPort(): String {
+        // First try the file the hook writes.
+        try {
+            val file = File("/data/local/tmp/adb_x_pairing_port")
+            if (file.exists() && file.canRead()) {
+                val port = file.readText().trim()
+                if (port.isNotEmpty() && port != "0" && port.all { it.isDigit() }) {
+                    return port
+                }
+            }
+        } catch (_: Throwable) { }
         for (prop in arrayOf("service.adb.tls.port", "service.adb.tcp.port")) {
             val out = ShellUtils.execute("getprop " + prop, 500).output.trim()
             if (out.isNotEmpty() && out != "0" && out.all { it.isDigit() }) {

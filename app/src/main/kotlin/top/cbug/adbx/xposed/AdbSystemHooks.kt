@@ -9,6 +9,7 @@ import android.net.wifi.WifiManager
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import de.robv.android.xposed.XC_MethodHook
 import de.robv.android.xposed.XposedHelpers
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam
 import java.io.File
@@ -81,6 +82,63 @@ object AdbSystemHooks {
         } catch (t: Throwable) {
             XposedInit.log("[$TAG] Init failed: ${t.message}")
             registered.set(false)
+        }
+
+        // Best-effort hook: try to catch the temporary ADB pairing port.
+        // On Android 14+, the pairing port lives inside adbd's process
+        // (no setprop), so we try hooking candidate dialog classes that
+        // receive the port on construction. If none match this ROM we
+        // silently skip — the user can still type the port manually in
+        // the Status tab.
+        hookPairingDialog()
+    }
+
+    private fun hookPairingDialog() {
+        // Candidate classes across Android versions. Each entry is
+        // (className, fieldNameHoldingPort). On match, the value is
+        // persisted to /data/local/tmp/adb_x_pairing_port for the app
+        // to read via AdbHelper.getPairingPort().
+        val candidates = listOf(
+            "com.android.systemui.adb.AdbPairingDialog" to "mPort",
+            "com.android.systemui.adb.AdbPairingDialog" to "mServicePort",
+            "com.android.systemui.adb.AdbPairingDialog" to "port",
+            "com.android.settingslib.wifi.AccessPoint" to "mPairingPort",
+            "com.android.settings.wifi.WifiPairingDialog" to "mPort",
+        )
+        for ((className, fieldName) in candidates) {
+            try {
+                val cls = XposedHelpers.findClass(className, null)
+                XposedHelpers.findField(cls, fieldName)
+                XposedHelpers.findAndHookConstructor(cls, Any::class.java, object : XC_MethodHook() {
+                    override fun afterHookedMethod(param: MethodHookParam) {
+                        try {
+                            val port = XposedHelpers.getObjectField(param.thisObject, fieldName)?.toString()
+                            if (!port.isNullOrBlank() && port != "0") {
+                                writePairingPort(port)
+                            }
+                        } catch (_: Throwable) { }
+                    }
+                })
+                XposedInit.log("[$TAG] Hooked $className.$fieldName")
+            } catch (_: Throwable) {
+                // Class or field not on this ROM — silently skip.
+            }
+        }
+    }
+
+    private fun writePairingPort(port: String) {
+        try {
+            val ctx = XposedHelpers.callMethod(
+                XposedHelpers.callStaticMethod(
+                    XposedHelpers.findClass("android.app.ActivityThread", null),
+                    "currentActivityThread"
+                ),
+                "getSystemContext"
+            ) as Context
+            Runtime.getRuntime().exec(arrayOf("su", "-c", "sh -c 'echo $port > /data/local/tmp/adb_x_pairing_port && chmod 666 /data/local/tmp/adb_x_pairing_port'"))
+            XposedInit.log("[$TAG] pairing port written: $port")
+        } catch (t: Throwable) {
+            XposedInit.log("[$TAG] writePairingPort failed: ${t.message}")
         }
     }
 

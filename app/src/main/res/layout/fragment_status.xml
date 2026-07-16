@@ -284,11 +284,28 @@
                     android:textColor="?attr/colorOnTertiaryContainer"
                     tools:text="host: 192.168.1.8:37679 · code: 123456" />
 
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/tilPairingPort"
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="@string/pairing_port_hint">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/etPairingPort"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:inputType="number"
+                        android:maxLength="5" />
+                </com.google.android.material.textfield.TextInputLayout>
+
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnCopyPairCommand"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
+                    android:layout_marginTop="8dp"
                     android:text="@string/pairing_copy_command"
                     app:icon="@drawable/ic_copy" />
             </LinearLayout>

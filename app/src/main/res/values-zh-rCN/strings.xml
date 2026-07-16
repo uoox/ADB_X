@@ -23,6 +23,7 @@
     <!-- Sections / controls -->
     <string name="section_status">状态</string>
     <string name="section_fixed_port">固定 ADB 端口</string>
+    <string name="pairing_port_hint">配对端口(自动检测不到时手动输入)</string>
     <string name="pairing_active_title">配对进行中</string>
     <string name="pairing_copy_command">复制配对命令</string>
     <string name="pairing_expires_fmt">%1$d 秒后失效</string>

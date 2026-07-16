@@ -63,6 +63,7 @@ class StatusFragment : Fragment() {
     private lateinit var tvPairingBreakdown: TextView
     private lateinit var btnCopyPairCommand: MaterialButton
     private lateinit var tvPairingCountdown: TextView
+    private lateinit var etPairingPort: TextInputEditText
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
@@ -93,6 +94,7 @@ class StatusFragment : Fragment() {
         tvPairingBreakdown        = view.findViewById(R.id.tvPairingBreakdown)
         btnCopyPairCommand        = view.findViewById(R.id.btnCopyPairCommand)
         tvPairingCountdown        = view.findViewById(R.id.tvPairingCountdown)
+        etPairingPort             = view.findViewById(R.id.etPairingPort)
 
         siAdb.setLabel(getString(R.string.si_label_adb))
         siPairing.setLabel(getString(R.string.si_label_pairing))
@@ -228,9 +230,16 @@ class StatusFragment : Fragment() {
             val host = if (m.localIp.isNotEmpty()) m.localIp
                        else if (m.externalIp.isNotEmpty()) m.externalIp
                        else "<phone-ip>"
-            val cmd = "adb pair $host:${m.pairingPort} ${code.ifBlank { m.pairingCode }}"
+            // Prefer the user-editable input box (auto-detected value goes
+            // in as the starting point but the user can correct it).
+            if (etPairingPort.text.isNullOrBlank()) {
+                etPairingPort.setText(m.pairingPort)
+            }
+            val port = etPairingPort.text?.toString()?.trim().orEmpty().ifEmpty { m.pairingPort }
+            val codeFinal = code.ifBlank { m.pairingCode }
+            val cmd = "adb pair $host:$port $codeFinal"
             tvPairingConnectionString.text = cmd
-            tvPairingBreakdown.text = "host: $host:${m.pairingPort}  ·  code: ${code.ifBlank { m.pairingCode }}"
+            tvPairingBreakdown.text = "host: $host:$port  ·  code: $codeFinal"
             btnCopyPairCommand.setOnClickListener {
                 val act = activity as? MainActivity ?: return@setOnClickListener
                 act.copyToClipboard("adb pair command", cmd)

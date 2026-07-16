@@ -30,6 +30,7 @@
     <!-- Sections / controls -->
     <string name="section_status">Status</string>
     <string name="section_fixed_port">Fixed ADB port</string>
+    <string name="pairing_port_hint">Pairing port (enter manually if auto-detect fails)</string>
     <string name="pairing_active_title">Pairing in progress</string>
     <string name="pairing_copy_command">Copy pair command</string>
     <string name="pairing_expires_fmt">expires in %1$ds</string>
