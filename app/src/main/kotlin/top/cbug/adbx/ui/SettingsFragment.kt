@@ -25,7 +25,6 @@ class SettingsFragment : Fragment() {
     private lateinit var swAutoDisable: MaterialSwitch
     private lateinit var swBootStart: MaterialSwitch
     private lateinit var toggleLanguage: MaterialButtonToggleGroup
-    private lateinit var cardPairing: com.google.android.material.card.MaterialCardView
     private lateinit var tvAboutVersion: TextView
     private lateinit var tvAboutModuleId: TextView
 
@@ -39,14 +38,8 @@ class SettingsFragment : Fragment() {
         swAutoDisable  = view.findViewById(R.id.swAutoDisable)
         swBootStart    = view.findViewById(R.id.swBootStart)
         toggleLanguage = view.findViewById(R.id.toggleLanguage)
-        cardPairing    = view.findViewById(R.id.cardPairing)
         tvAboutVersion = view.findViewById(R.id.tvAboutVersion)
         tvAboutModuleId = view.findViewById(R.id.tvAboutModuleId)
-
-        // Pairing shortcut opens the dedicated PairingActivity
-        cardPairing.setOnClickListener {
-            (activity as? MainActivity)?.openPairingActivity()
-        }
 
         AppSettings.load(requireContext())
         swAutoEnable.isChecked = AppSettings.autoEnable

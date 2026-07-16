@@ -154,7 +154,7 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Pairing shortcut card -->
+        <!-- Pairing shortcut card (default — when no pairing in progress) -->
         <com.google.android.material.card.MaterialCardView
             style="?attr/materialCardViewElevatedStyle"
             android:layout_width="match_parent"
@@ -211,6 +211,86 @@
                     android:src="@drawable/ic_chevron_right"
                     app:tint="?attr/colorOnSurfaceVariant"
                     android:contentDescription="@string/section_pairing_code" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Pairing ACTIVE card (shown only when a pairing port is open) -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardPairingActive"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            app:cardCornerRadius="16dp"
+            app:cardBackgroundColor="?attr/colorTertiaryContainer"
+            app:strokeColor="?attr/colorTertiary"
+            app:strokeWidth="2dp"
+            android:visibility="gone"
+            tools:visibility="visible">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <View
+                        android:layout_width="10dp"
+                        android:layout_height="10dp"
+                        android:background="@drawable/dot_pulsing"
+                        android:layout_marginEnd="10dp" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/pairing_active_title"
+                        android:textColor="?attr/colorOnTertiaryContainer"
+                        android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                    <TextView
+                        android:id="@+id/tvPairingCountdown"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="monospace"
+                        android:textColor="?attr/colorOnTertiaryContainer"
+                        android:textSize="13sp"
+                        tools:text="expires in 120s" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/tvPairingConnectionString"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:padding="14dp"
+                    android:background="?attr/colorSurface"
+                    android:fontFamily="monospace"
+                    android:textSize="13sp"
+                    android:textIsSelectable="true"
+                    tools:text="adb pair 192.168.1.8:37679 123456" />
+
+                <TextView
+                    android:id="@+id/tvPairingBreakdown"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textAppearance="?attr/textAppearanceBodySmall"
+                    android:textColor="?attr/colorOnTertiaryContainer"
+                    tools:text="host: 192.168.1.8:37679 · code: 123456" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCopyPairCommand"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="16dp"
+                    android:text="@string/pairing_copy_command"
+                    app:icon="@drawable/ic_copy" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 

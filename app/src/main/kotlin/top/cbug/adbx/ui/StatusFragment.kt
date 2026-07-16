@@ -58,6 +58,12 @@ class StatusFragment : Fragment() {
     private lateinit var cardPairingShortcut: com.google.android.material.card.MaterialCardView
     private lateinit var tvPairingHint: TextView
 
+    private lateinit var cardPairingActive: MaterialCardView
+    private lateinit var tvPairingConnectionString: TextView
+    private lateinit var tvPairingBreakdown: TextView
+    private lateinit var btnCopyPairCommand: MaterialButton
+    private lateinit var tvPairingCountdown: TextView
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View = inflater.inflate(R.layout.fragment_status, container, false)
@@ -81,6 +87,12 @@ class StatusFragment : Fragment() {
 
         cardPairingShortcut = view.findViewById(R.id.cardPairingShortcut)
         tvPairingHint       = view.findViewById(R.id.tvPairingHint)
+
+        cardPairingActive         = view.findViewById(R.id.cardPairingActive)
+        tvPairingConnectionString = view.findViewById(R.id.tvPairingConnectionString)
+        tvPairingBreakdown        = view.findViewById(R.id.tvPairingBreakdown)
+        btnCopyPairCommand        = view.findViewById(R.id.btnCopyPairCommand)
+        tvPairingCountdown        = view.findViewById(R.id.tvPairingCountdown)
 
         siAdb.setLabel(getString(R.string.si_label_adb))
         siPairing.setLabel(getString(R.string.si_label_pairing))
@@ -192,7 +204,7 @@ class StatusFragment : Fragment() {
             else getString(R.string.si_value_unavailable)
         )
 
-        // Pairing code shortcut — line below the indicators
+        // Pairing shortcut card (default state) — line below the indicators
         val code = m.pairingCode
         tvPairingHint.text = if (code.isNotBlank()) {
             getString(R.string.si_value_pairing_code, code)
@@ -202,6 +214,29 @@ class StatusFragment : Fragment() {
             getString(R.string.si_value_pairing_idle)
         } else {
             "—"
+        }
+
+        // Pairing ACTIVE card — shown when a pairing port is currently
+        // open. Android gives the pairing port a short TTL (default 120s),
+        // so we surface the full `adb pair host:port code` command the
+        // user can copy straight into a terminal.
+        val pairingActive = m.pairingPort.isNotBlank()
+        cardPairingActive.visibility = if (pairingActive) View.VISIBLE else View.GONE
+        cardPairingShortcut.visibility = if (pairingActive) View.GONE else View.VISIBLE
+
+        if (pairingActive) {
+            val host = if (m.localIp.isNotEmpty()) m.localIp
+                       else if (m.externalIp.isNotEmpty()) m.externalIp
+                       else "<phone-ip>"
+            val cmd = "adb pair $host:${m.pairingPort} ${code.ifBlank { m.pairingCode }}"
+            tvPairingConnectionString.text = cmd
+            tvPairingBreakdown.text = "host: $host:${m.pairingPort}  ·  code: ${code.ifBlank { m.pairingCode }}"
+            btnCopyPairCommand.setOnClickListener {
+                val act = activity as? MainActivity ?: return@setOnClickListener
+                act.copyToClipboard("adb pair command", cmd)
+                act.toast(getString(R.string.msg_copied, cmd))
+            }
+            tvPairingCountdown.text = getString(R.string.pairing_expires_fmt, 120)
         }
     }
 
