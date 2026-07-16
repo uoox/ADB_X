@@ -5,16 +5,18 @@ import android.content.Context
 import androidx.appcompat.app.AppCompatDelegate
 import top.cbug.adbx.store.Settings
 import top.cbug.adbx.util.LocaleHelper
+import top.cbug.adbx.util.XposedStatus
 
 class App : Application() {
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(base)
+        // Hand the application context to XposedStatus so its LSPosed-time
+        // markActive() writes can land in our SharedPreferences without
+        // needing the activity context (which doesn't exist yet in
+        // system_server handleLoadPackage).
+        XposedStatus.init(this)
         // Load Settings first so LocaleHelper sees the saved choice.
         Settings.load(base)
-        // No-op for "system"; forces locale for "en" / "zh".
-        // We don't applyLocale here — Application base context doesn't
-        // surface string resources to UI directly. Activities apply it
-        // via LocaleHelper.wrap in their attachBaseContext override.
     }
 
     override fun onCreate() {

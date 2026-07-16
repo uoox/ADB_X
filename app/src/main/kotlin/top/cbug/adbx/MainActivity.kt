@@ -237,11 +237,12 @@ class MainActivity : AppCompatActivity() {
                         R.string.xposed_inactive_subtitle_with_frame
                 XposedStatus.State.UNKNOWN  -> R.string.xposed_inactive_subtitle_no_frame
             }).let {
-                if (it.startsWith("__")) it
-                else {
-                    val args = status.xposed.frameworkPackages.joinToString(", ")
-                    getString(R.string.xposed_inactive_subtitle_with_frame, args)
-                }
+                // INACTIVE subtitle uses %1$s for the framework-package list —
+                // inject the actual list. ACTIVE subtitle has no placeholders
+                // so we pass it through unchanged.
+                val args = status.xposed.frameworkPackages.joinToString(", ")
+                if (status.xposed.state == XposedStatus.State.ACTIVE) it
+                else getString(R.string.xposed_inactive_subtitle_with_frame, args)
             },
             xposedChipText = getString(when (status.xposed.state) {
                 XposedStatus.State.ACTIVE   -> R.string.xposed_state_active
@@ -420,6 +421,13 @@ class MainActivity : AppCompatActivity() {
                 val localIp = try { WifiHelper.getLocalIpAddress(this@MainActivity) } catch (_: Exception) { "" }
                 val hasRoot = ShellUtils.hasRoot()
 
+                // Probe Xposed injection status. This is what lights up
+                // the green "Active" chip on the Status tab when the hook
+                // is actually loaded into this process.
+                val xposed = try { XposedStatus.probe(this@MainActivity) } catch (_: Exception) {
+                    XposedStatus.Info(XposedStatus.State.UNKNOWN, emptyList(), "probe failed")
+                }
+
                 status = status.copy(
                     adbEnabled = adbEnabled,
                     port = portNonRoot,
@@ -428,6 +436,7 @@ class MainActivity : AppCompatActivity() {
                     ssid = ssid,
                     localIp = localIp,
                     hasRoot = hasRoot,
+                    xposed = xposed,
                 )
                 cachedLocalIp = localIp
                 cachedPort = portNonRoot
