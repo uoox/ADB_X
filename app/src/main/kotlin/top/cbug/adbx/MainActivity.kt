@@ -98,8 +98,6 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         try {
             setContentView(R.layout.activity_main)
-            setSupportActionBar(findViewById(R.id.toolbar))
-
             AppSettings.load(this)
             bottomNav = findViewById(R.id.bottom_nav)
             bottomNav.setOnItemSelectedListener { item ->
