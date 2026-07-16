@@ -1,30 +1,29 @@
 package top.cbug.adbx.ui
 
-import android.content.Intent
+import android.app.AlertDialog
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
-import com.google.android.material.button.MaterialButton
-import com.google.android.material.button.MaterialButtonToggleGroup
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.materialswitch.MaterialSwitch
 import top.cbug.adbx.MainActivity
 import top.cbug.adbx.R
 import top.cbug.adbx.store.Settings as AppSettings
 
 /**
- * Settings tab — automation switches + language picker + about card.
+ * Settings tab — automation switches + language picker (popup) + about card.
  */
 class SettingsFragment : Fragment() {
 
     private lateinit var swAutoEnable: MaterialSwitch
     private lateinit var swAutoDisable: MaterialSwitch
     private lateinit var swBootStart: MaterialSwitch
-    private lateinit var toggleLanguage: MaterialButtonToggleGroup
+    private lateinit var cardLanguage: MaterialCardView
+    private lateinit var tvLanguageSub: TextView
     private lateinit var tvAboutVersion: TextView
     private lateinit var tvAboutModuleId: TextView
 
@@ -34,11 +33,12 @@ class SettingsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        swAutoEnable   = view.findViewById(R.id.swAutoEnable)
-        swAutoDisable  = view.findViewById(R.id.swAutoDisable)
-        swBootStart    = view.findViewById(R.id.swBootStart)
-        toggleLanguage = view.findViewById(R.id.toggleLanguage)
-        tvAboutVersion = view.findViewById(R.id.tvAboutVersion)
+        swAutoEnable    = view.findViewById(R.id.swAutoEnable)
+        swAutoDisable   = view.findViewById(R.id.swAutoDisable)
+        swBootStart     = view.findViewById(R.id.swBootStart)
+        cardLanguage    = view.findViewById(R.id.cardLanguage)
+        tvLanguageSub   = view.findViewById(R.id.tvLanguageSub)
+        tvAboutVersion  = view.findViewById(R.id.tvAboutVersion)
         tvAboutModuleId = view.findViewById(R.id.tvAboutModuleId)
 
         AppSettings.load(requireContext())
@@ -59,28 +59,8 @@ class SettingsFragment : Fragment() {
             AppSettings.save(requireContext())
         }
 
-        // Restore language selection
-        val langButtonId = when (AppSettings.locale) {
-            "en"  -> R.id.langEnglish
-            "zh"  -> R.id.langChinese
-            else  -> R.id.langSystem
-        }
-        toggleLanguage.check(langButtonId)
-
-        toggleLanguage.addOnButtonCheckedListener { _, checkedId, isChecked ->
-            if (!isChecked) return@addOnButtonCheckedListener
-            val newLocale = when (checkedId) {
-                R.id.langEnglish -> "en"
-                R.id.langChinese -> "zh"
-                else             -> "system"
-            }
-            if (newLocale == AppSettings.locale) return@addOnButtonCheckedListener
-            AppSettings.locale = newLocale
-            AppSettings.save(requireContext())
-            // Force activity recreate to re-inflate all fragments with the
-            // new locale.
-            (activity as? MainActivity)?.recreate()
-        }
+        renderLanguageLabel()
+        cardLanguage.setOnClickListener { showLanguageDialog() }
 
         // About
         try {
@@ -93,5 +73,43 @@ class SettingsFragment : Fragment() {
         }
         tvAboutModuleId.text = getString(R.string.about_module_id) + ": " +
             requireContext().packageName
+    }
+
+    override fun onResume() {
+        super.onResume()
+        AppSettings.load(requireContext())
+        renderLanguageLabel()
+    }
+
+    private fun renderLanguageLabel() {
+        tvLanguageSub.text = when (AppSettings.locale) {
+            "en" -> getString(R.string.lang_english)
+            "zh" -> getString(R.string.lang_chinese)
+            else -> getString(R.string.lang_system)
+        }
+    }
+
+    private fun showLanguageDialog() {
+        val labels = arrayOf(
+            getString(R.string.lang_system),
+            getString(R.string.lang_english),
+            getString(R.string.lang_chinese),
+        )
+        val tags = arrayOf("system", "en", "zh")
+        val currentIndex = tags.indexOf(AppSettings.locale).coerceAtLeast(0)
+
+        AlertDialog.Builder(requireContext())
+            .setTitle(R.string.section_language)
+            .setSingleChoiceItems(labels, currentIndex) { dialog, which ->
+                val newLocale = tags[which]
+                if (newLocale != AppSettings.locale) {
+                    AppSettings.locale = newLocale
+                    AppSettings.save(requireContext())
+                    (activity as? MainActivity)?.recreate()
+                }
+                dialog.dismiss()
+            }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 }
