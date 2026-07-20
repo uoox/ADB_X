@@ -207,6 +207,20 @@ class MainActivity : AppCompatActivity() {
                         lastPort = cur
                         lastEnabled = enabled
                         Log.d(TAG, "polling: pairingPort='$cur' enabled=$enabled → doMinimalRefresh")
+                        // Side-effect: once the polling loop has resolved an
+                        // ephemeral pairing port, persist it into
+                        // /data/local/tmp/adb_x_pairing_port so any future
+                        // hook path can pick the same value up. Use su
+                        // because the app uid cannot write
+                        // /data/local/tmp/ directly.
+                        if (cur.isNotEmpty() && (cur.toIntOrNull() ?: 0) in 1024..65535) {
+                            runCatching {
+                                top.cbug.adbx.util.ShellUtils.executeSu(
+                                    "sh -c 'echo $cur > /data/local/tmp/adb_x_pairing_port && chmod 666 /data/local/tmp/adb_x_pairing_port'",
+                                    1000
+                                )
+                            }
+                        }
                         mainHandler.post { doMinimalRefresh() }
                     }
                 } catch (t: Throwable) {
