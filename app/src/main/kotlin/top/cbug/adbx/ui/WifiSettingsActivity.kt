@@ -51,6 +51,16 @@ class WifiSettingsActivity : androidx.appcompat.app.AppCompatActivity() {
     private lateinit var rv: RecyclerView
     private lateinit var tvEmpty: TextView
 
+
+    /**
+     * Wrap the base context with the user's preferred locale. Without
+     * this the system-default `values/strings.xml` (English) leaks into
+     * `getString(...)` calls even when the app-wide locale is zh-rCN.
+     */
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(top.cbug.adbx.util.LocaleHelper.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_wifi_settings)

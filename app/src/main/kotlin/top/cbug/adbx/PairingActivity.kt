@@ -51,6 +51,15 @@ class PairingActivity : AppCompatActivity() {
     private lateinit var etNewCode: TextInputEditText
     private lateinit var btnSaveCode: MaterialButton
 
+    /**
+     * Wrap the base context with the user's preferred locale. Without
+     * this the system-default `values/strings.xml` (English) leaks into
+     * `getString(...)` calls even when the app-wide locale is zh-rCN.
+     */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(top.cbug.adbx.util.LocaleHelper.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_pairing)
