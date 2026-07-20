@@ -234,6 +234,11 @@ class StatusFragment : Fragment() {
         // of whether a pairing session is currently running.
         cardPairingShortcut.visibility = View.VISIBLE
 
+        // If the detected pairing marker has expired (TTL elapsed / file
+        // deleted), make sure the user can tap 开启配对模式 again — both
+        // the hint text and the button enabled state reset.
+        if (!pairingActive) unstickPairingButton()
+
         if (pairingActive) {
             val host = if (m.localIp.isNotEmpty()) m.localIp
                        else if (m.externalIp.isNotEmpty()) m.externalIp
@@ -317,13 +322,18 @@ class StatusFragment : Fragment() {
             ).show()
             // 4. Mark the in-memory adbState as "trying" — easier than
             //    waiting for the polling loop to update everything.
-            btnStartPairing.isEnabled = false
             // Mutate the hint string + lock button text. Don't repurpose the button
             // because the long '已请求配对,等待端口分配…' string would wrap
             // inside the outlined-button metric and break the layout.
             tvPairingHint.text = getString(R.string.msg_pair_requested)
-            btnStartPairing.isEnabled = false
-            btnStartPairing.text = getString(R.string.section_pairing_code)
+            // Schedule an unlock: re-enable the button + clear the hint
+            // once the marker file has either produced a port (success) or
+            // aged past the TTL (5 min). Each renderStatus() tick also
+            // calls unstickPairingButton() when the pairing marker is
+            // gone, so the user is never stuck with a disabled button
+            // forever.
+            lockPairingButton()
+            view?.postDelayed({ unstickPairingButton() }, 30_000L)
         } catch (t: Throwable) {
             android.util.Log.e("ADB_X_StatusFr", "triggerInAppPairing failed", t)
             android.widget.Toast.makeText(
@@ -334,4 +344,24 @@ class StatusFragment : Fragment() {
         }
     }
 
+
+    private fun lockPairingButton() {
+        btnStartPairing.isEnabled = false
+        btnStartPairing.text = getString(R.string.section_pairing_code)
+    }
+
+    /**
+     * Re-enable the 开启配对模式 button and reset the hint text. Called
+     * either by the 30-second safety timer after a tap, or by
+     * renderStatus() each tick once the marker file has expired
+     * (or never appeared in the first place), so the user is never
+     * stranded on a disabled control.
+     */
+    private fun unstickPairingButton() {
+        if (!isAdded) return
+        btnStartPairing.isEnabled = true
+        btnStartPairing.text = getString(R.string.btn_start_pairing)
+        tvPairingHint.text = getString(R.string.pairing_hint_idle)
+    }
 }
+

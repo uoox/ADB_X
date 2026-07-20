@@ -11,6 +11,11 @@ object AdbHelper {
 
     private const val TAG = "ADB_X_AdbHelper"
 
+    /** Marker-file TTL. Ephemeral pairing ports expire after ~120 s in
+     * Android; we leave a 5× safety window so the stale marker never
+     * keeps the "配对进行中" card showing after the dialog has closed. */
+    private const val PORT_MARKER_TTL_MS = 5 * 60 * 1000L
+
     /** Use settings global as primary check (works on Rust adbd too) */
     fun isAdbWifiEnabled(context: Context): Boolean {
         return getCurrentState(context)
@@ -282,26 +287,36 @@ object AdbHelper {
      */
     fun getPairingPort(): String {
         // 1. Hook-written marker file (system_server can write here, app can read).
+        //    The marker is ignored if older than 5 min — Android expires
+        //    the ephemeral pairing port after ~120 s of inactivity, and a
+        //    stale value would otherwise keep the "配对进行中" card on
+        //    screen forever.
         try {
             val f = File("/data/local/tmp/adb_x_pairing_port")
             if (f.exists() && f.canRead()) {
-                val port = f.readText().trim()
-                if (port.isNotEmpty() && port != "0" && port.all { it.isDigit() }
-                    && port.toInt() in 1024..65535) {
-                    Log.d(TAG, "pairing port via /data/local/tmp marker: $port")
-                    return port
+                val ageMs = System.currentTimeMillis() - f.lastModified()
+                if (ageMs > PORT_MARKER_TTL_MS) {
+                    Log.d(TAG, "pairing marker aged " + ageMs + "ms, ignoring")
+                } else {
+                    val port = f.readText().trim()
+                    if (port.isNotEmpty() && port != "0" && port.all { it.isDigit() }
+                        && port.toInt() in 1024..65535) {
+                        Log.d(TAG, "pairing port via /data/local/tmp marker: " + port + " (age " + ageMs + "ms)")
+                        return port
+                    }
                 }
             }
         } catch (_: Throwable) { }
 
-        // 2. dumpsys wifi — stock Android 13+ has a line containing the
-        //    ephemeral pairing port while the dialog is up. Cheap enough
-        //    to grep every time.
+        // 2. dumpsys wifi — match ONLY pairing-specific lines. We must
+        //    avoid "adb tcp" / "tls port" because those are present in the
+        //    main (non-ephemeral) ADB listen port output and would falsely
+        //    reanimate the "配对进行中" card with the wrong port.
         try {
-            val suResult = ShellUtils.executeSu("dumpsys wifi 2>&1 | grep -iE 'pairing|adb tcp|tls port' | head -20", 3000)
+            val suResult = ShellUtils.executeSu(
+                "dumpsys wifi 2>&1 | grep -iE 'pairing_port|adb-pairing|adb_pairing' | head -10", 3000)
             if (suResult.isSuccess() && suResult.output.isNotBlank()) {
-                // Match a 4-5 digit port adjacent to pairing/adb hints.
-                val rx = Regex("(?:pairing|adb tcp|tls port)[^0-9]*?(\\d{4,5})")
+                val rx = Regex("(?:adb[_-]pairing[_-]port|pairing[_-]port|adb[_-]pairing)[^0-9]*?(\\d{4,5})")
                 val match = rx.find(suResult.output)
                 if (match != null) {
                     val port = match.groupValues[1]
@@ -329,27 +344,26 @@ object AdbHelper {
             }
         } catch (_: Throwable) { }
 
-        // 4. setprop fallback — usually NOT the pairing port on Android 14+
-        //    but still informative on older ROMs / when wireless is unused.
+        // 4. setprop fallback — usually NOT the pairing port on Android 14+,
+        //    and even worse, after the pairing dialog closes the system
+        //    leaves the last ephemeral port in service.adb.tls.port for
+        //    some time. Only accept the value as live when both
+        //    service.adb.tls.port AND persist.adb.tls.port are non-zero
+        //    and in the ephemeral range — any mismatch means we're looking
+        //    at a stale value from a previous dialog and should ignore it.
         for (prop in arrayOf("service.adb.tls.port", "service.adb.tcp.port")) {
+            val persistProp = "persist." + prop.removePrefix("service.")
+            val persistOut = ShellUtils.executeSu("getprop " + persistProp, 500).output.trim()
+            val persistVal = persistOut.toIntOrNull() ?: 0
+            if (persistVal == 0) {
+                Log.d(TAG, "skip setprop " + prop + ": " + persistProp + "=0 (no active listener)")
+                continue
+            }
             val out = ShellUtils.execute("getprop " + prop, 500).output.trim()
             if (out.isNotEmpty() && out != "0" && out.all { it.isDigit() }
                 && out.toInt() in 1024..65535) {
-                Log.d(TAG, "pairing port via setprop $prop: $out (may be main ADB port, not pairing)")
+                Log.d(TAG, "pairing port via setprop " + prop + ": " + out + " (persist ok)")
                 return out
-            }
-        }
-        if (ShellUtils.hasRoot()) {
-            for (prop in arrayOf("service.adb.tls.port", "service.adb.tcp.port")) {
-                val r = ShellUtils.executeSu("getprop " + prop, 500)
-                if (r.isSuccess()) {
-                    val out = r.output.trim()
-                    if (out.isNotEmpty() && out != "0" && out.all { it.isDigit() }
-                        && out.toInt() in 1024..65535) {
-                        Log.d(TAG, "pairing port via setprop $prop (root): $out")
-                        return out
-                    }
-                }
             }
         }
         return ""
