@@ -38,6 +38,36 @@ object AdbHelper {
 
     /** Non-root: read service props (all processes can read) */
     fun getCurrentPortNonRoot(): String {
+        // Settings.Global.ADB_WIFI_ENABLED is the authoritative on/off switch
+        // for wireless ADB on Android 13+. If it's off, the port shown by
+        // getprop is stale and we should refuse to call the device "active".
+        // Hardcode the string instead of the API 33 constant.
+        // Try getInt first, but fall back to getString — Android stores the
+        // value as either depending on how it was written, and adb shell
+        // settings uses getString. Without this fallback the two can
+        // disagree.
+        val wEnabled = try {
+            android.provider.Settings.Global.getInt(
+                top.cbug.adbx.App.appContext.contentResolver,
+                "adb_wifi_enabled", 0
+            )
+        } catch (_: Throwable) { -1 }
+        val effective = if (wEnabled != 0) wEnabled else {
+            try {
+                when (android.provider.Settings.Global.getString(
+                    top.cbug.adbx.App.appContext.contentResolver,
+                    "adb_wifi_enabled"
+                )) {
+                    "1" -> 1
+                    "0" -> 0
+                    else -> wEnabled
+                }
+            } catch (_: Throwable) { wEnabled }
+        }
+        if (effective == 0) {
+            Log.d(TAG, "getCurrentPortNonRoot: adb_wifi_enabled=0, skipping setprop port")
+            return ""
+        }
         for (prop in arrayOf(
             "service.adb.tls.port",
             "service.adb.tcp.port"
@@ -53,6 +83,33 @@ object AdbHelper {
     /** Best-effort wireless ADB state detection.
      *  Primary: check getprop (fast, non-root), then settings global, then dumpsys */
     fun getCurrentState(context: Context): Boolean {
+        // The Settings.Global.ADB_WIFI_ENABLED flag is the authoritative
+        // on/off switch for wireless ADB on Android 13+. If it's off, we
+        // answer "off" immediately and don't trust any stale getprop port.
+        // Mirror the same getString-fallback as getCurrentPortNonRoot so
+        // adb shell settings and Settings.Global agree.
+        val wEnabled = try {
+            android.provider.Settings.Global.getInt(
+                top.cbug.adbx.App.appContext.contentResolver,
+                "adb_wifi_enabled", 0
+            )
+        } catch (_: Throwable) { -1 }
+        val effective = if (wEnabled != 0) wEnabled else {
+            try {
+                when (android.provider.Settings.Global.getString(
+                    top.cbug.adbx.App.appContext.contentResolver,
+                    "adb_wifi_enabled"
+                )) {
+                    "1" -> 1
+                    "0" -> 0
+                    else -> wEnabled
+                }
+            } catch (_: Throwable) { wEnabled }
+        }
+        if (effective == 0) {
+            Log.d(TAG, "getCurrentState: adb_wifi_enabled=0, refusing stale port fallback")
+            return false
+        }
         // 1. Fastest: check service props first
         val port = getCurrentPortNonRoot()
         if (port.isNotEmpty()) {

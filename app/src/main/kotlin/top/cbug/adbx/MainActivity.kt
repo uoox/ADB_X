@@ -32,6 +32,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
+import android.provider.Settings
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.withContext
 import top.cbug.adbx.store.Settings as AppSettings
 import top.cbug.adbx.ui.NetworkFragment
@@ -61,11 +64,19 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "ADB_X_Main"
         private const val REQUEST_LOCATION = 1001
         private const val STATE_TAB = "selected_tab"
+        // Polling interval for the backup watcher. The ContentObserver is
+        // the primary path; this catches anything the observer misses on
+        // certain OEM ROMs (e.g. OnePlus doesn't always notify observers
+        // when the SystemUI adb-pairing dialog spawns a new transient port).
+        private const val PAIRING_POLL_INTERVAL_MS = 3000L
     }
 
     val bgScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     val mainHandler = Handler(Looper.getMainLooper())
     private var refreshInProgress = false
+    private var pairingPollJob: Job? = null
+    private var wifiObserver: android.database.ContentObserver? = null
+    private var adbObserver: android.database.ContentObserver? = null
 
     // Cached values for click-to-copy + cross-fragment reads.
     private var cachedLocalIp: String = ""
@@ -157,6 +168,63 @@ class MainActivity : AppCompatActivity() {
         outState.putInt(STATE_TAB, bottomNav.selectedItemId)
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 1. Watch `adb_wifi_enabled` so the Status tab updates the moment
+        //    the user toggles wireless ADB in Developer options. ContentObservers
+        //    run on the main thread, so they're safe to immediately trigger a
+        //    refresh without an extra hop. Use the literal constant — the
+        //    Settings.Global.ADB_WIFI_ENABLED constant landed in API 33 only.
+        val ADB_WIFI_ENABLED_URI = android.provider.Settings.Global.getUriFor(
+            "adb_wifi_enabled"
+        )
+        wifiObserver = object : android.database.ContentObserver(mainHandler) {
+            override fun onChange(selfChange: Boolean) {
+                Log.d(TAG, "settings: adb_wifi_enabled changed, refreshing…")
+                doMinimalRefresh()
+            }
+        }.also { observer ->
+            contentResolver.registerContentObserver(ADB_WIFI_ENABLED_URI, false, observer)
+        }
+
+        // 2. Watch parcel-related transient props. `service.adb.tcp.port`
+        //    and `service.adb.tls.port` are written by adbd on port-allocation
+        //    events, but they go through system properties — not Settings.Global.
+        //    ContentObserver can't see them. We do a short periodic poll from a
+        //    background coroutine: cheap (su getprop returns in <50 ms), and
+        //    keeps the pairing-port card live without requiring the hook.
+        pairingPollJob?.cancel()
+        pairingPollJob = bgScope.launch {
+            var lastPort = ""
+            var lastEnabled: Boolean? = null
+            while (isActive) {
+                try {
+                    val cur = AdbHelper.getPairingPort()
+                    val enabled = Settings.Global.getInt(
+                        contentResolver, "adb_wifi_enabled", 0
+                    ) == 1
+                    if (cur != lastPort || enabled != lastEnabled) {
+                        lastPort = cur
+                        lastEnabled = enabled
+                        Log.d(TAG, "polling: pairingPort='$cur' enabled=$enabled → doMinimalRefresh")
+                        mainHandler.post { doMinimalRefresh() }
+                    }
+                } catch (t: Throwable) {
+                    Log.w(TAG, "polling tick failed: ${t.message}")
+                }
+                kotlinx.coroutines.delay(PAIRING_POLL_INTERVAL_MS)
+            }
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        wifiObserver?.let { contentResolver.unregisterContentObserver(it) }
+        wifiObserver = null
+        pairingPollJob?.cancel()
+        pairingPollJob = null
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         bgScope.cancel()
@@ -166,6 +234,10 @@ class MainActivity : AppCompatActivity() {
         supportFragmentManager.commit {
             replace(R.id.nav_host, fragment)
         }
+        // The fragment being shown may want the latest status snapshot as
+        // soon as it's attached; the FragmentTransaction's commit() is
+        // synchronous enough that we can push here without an extra hop.
+        mainHandler.post { pushStatusToActiveFragment() }
     }
 
     // ---------------- Status refresh (used by fragments) ----------------

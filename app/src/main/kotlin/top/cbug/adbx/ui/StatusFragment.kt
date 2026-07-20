@@ -119,7 +119,7 @@ class StatusFragment : Fragment() {
     /** Called by MainActivity when new status data is available. */
     fun renderStatus(m: UiModel) {
         if (!isAdded) return
-        android.util.Log.d("ADB_X_StatusFr", "renderStatus xposedIsActive=${m.xposedIsActive} title=${m.xposedTitle} subtitle=${m.xposedSubtitle} chip=${m.xposedChipText}")
+        android.util.Log.d("ADB_X_StatusFr", "renderStatus: adb=" + m.adbState + " port='" + m.port + "'")
         // Xposed card
         tvXposedTitle.text = m.xposedTitle
         tvXposedSubtitle.text = m.xposedSubtitle
