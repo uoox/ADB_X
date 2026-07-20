@@ -35,6 +35,14 @@
     <string name="pairing_copy_command">Copy pair command</string>
     <string name="pairing_expires_fmt">expires in %1$ds</string>
     <string name="pairing_expired">Pairing port expired — re-enable to retry</string>
+    <string name="pairing_open_dev_options">Open Developer Options</string>
+    <string name="pairing_status_idle">No active pairing session detected</string>
+    <string name="pairing_status_active_fmt">Pairing session detected · port %1$s</string>
+    <string name="pairing_hint_open_dev">Open a new session in Developer options → Wireless debugging → Pair device with pairing code.</string>
+    <string name="pairing_set_hint">Set a custom 6-8 digit code that adbd will accept as a valid pairing input.</string>
+    <string name="pairing_prefix_cmd_fmt">adb pair %1$s:%2$s %3$s</string>
+    <string name="pairing_summary_no_code">(using ephemeral 6-digit code)</string>
+    <string name="pairing_manual_hint">If the port looks wrong, check Developer options → Wireless debugging for the actual port.</string>
     <string name="section_pairing_code">Pairing code</string>
     <string name="section_auto">Automation</string>
     <string name="section_settings">Settings</string>

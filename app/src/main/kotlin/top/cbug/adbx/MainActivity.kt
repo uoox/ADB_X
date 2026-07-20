@@ -273,6 +273,25 @@ class MainActivity : AppCompatActivity() {
 
     // ---------------- WiFi refresh ----------------
 
+    /**
+     * App-side poll of dumpsys as a backup path for the LSPosed hook.
+     * When the candidate classes don't match this ROM, this is what
+     * surfaces the (transient) pairing port to AdbHelper.
+     */
+    fun pollPairingPort() {
+        bgScope.launch {
+            try {
+                val r = ShellUtils.executeSu(
+                    "dumpsys activity provider com.android.adb 2>&1 | head -200",
+                    2000
+                )
+                if (r.isSuccess() && r.output.isNotBlank()) {
+                    android.util.Log.d("ADB_X_Main", "adb provider dump\n" + r.output.take(400))
+                }
+            } catch (_: Throwable) { }
+        }
+    }
+
     fun refreshWifiList() {
         if (refreshInProgress) {
             toast(getString(R.string.msg_still_loading))

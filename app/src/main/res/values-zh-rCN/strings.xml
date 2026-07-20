@@ -28,6 +28,14 @@
     <string name="pairing_copy_command">复制配对命令</string>
     <string name="pairing_expires_fmt">%1$d 秒后失效</string>
     <string name="pairing_expired">配对端口已失效,请重新开启</string>
+    <string name="pairing_open_dev_options">Open Developer Options</string>
+    <string name="pairing_status_idle">No active pairing session detected</string>
+    <string name="pairing_status_active_fmt">Pairing session detected · port %1$s</string>
+    <string name="pairing_hint_open_dev">Open a new session in Developer options → Wireless debugging → Pair device with pairing code.</string>
+    <string name="pairing_set_hint">Set a custom 6-8 digit code that adbd will accept as a valid pairing input.</string>
+    <string name="pairing_prefix_cmd_fmt">adb pair %1$s:%2$s %3$s</string>
+    <string name="pairing_summary_no_code">(using ephemeral 6-digit code)</string>
+    <string name="pairing_manual_hint">If the port looks wrong, check Developer options → Wireless debugging for the actual port.</string>
     <string name="section_pairing_code">配对码</string>
     <string name="section_auto">自动化</string>
     <string name="section_settings">设置</string>

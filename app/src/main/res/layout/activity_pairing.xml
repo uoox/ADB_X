@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-    Full-screen activity for managing the ADB pairing code. Reaches this
-    from Settings tab → "Pairing" entry, and from the Status tab's quick
-    shortcut button. Owns its own Toolbar so the back arrow feels
-    native (and the activity-level back press just finishes()).
+    Full-screen pairing manager. Three sections:
+    1. Status — what we currently detect about an active pairing session
+       (port + code + copy-able host:port command) or a hint to start one in
+       Developer Options.
+    2. Custom code — set a 6-8 digit pairing code that adbd will accept.
+    3. Open developer options — quick action that drops the user into the
+       Wireless Debugging pane so they can flip on "Pair device with
+       pairing code". One tap from this app to start a session.
+
+    Reached from:
+      - Status tab → "Pairing code" shortcut
 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -34,11 +41,13 @@
             android:orientation="vertical"
             android:padding="16dp">
 
+            <!-- Live pairing status -->
             <com.google.android.material.card.MaterialCardView
                 style="?attr/materialCardViewElevatedStyle"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:cardCornerRadius="16dp">
+                app:cardCornerRadius="16dp"
+                android:id="@+id/cardPairingStatus">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -53,27 +62,47 @@
                         android:textAppearance="?attr/textAppearanceTitleMedium" />
 
                     <TextView
-                        android:id="@+id/tvCurrentCode"
+                        android:id="@+id/tvPairingStatusSub"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:gravity="center"
+                        android:layout_marginTop="8dp"
+                        android:padding="12dp"
+                        android:background="?attr/colorSurfaceVariant"
                         android:fontFamily="monospace"
-                        android:letterSpacing="0.3"
-                        android:textAppearance="?attr/textAppearanceHeadlineMedium"
-                        android:textColor="?attr/colorPrimary"
-                        tools:text="123456" />
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:textSize="13sp"
+                        tools:text="Pairing code 123456 — host: 5555
+adb pair 192.168.1.8:5555 123456" />
+
+                    <TextView
+                        android:id="@+id/tvPairingHint"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        tools:text="Tap 打开开发者选项 → 无线调试 → 使用配对码配对" />
 
                     <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnCopyCode"
-                        style="?attr/materialButtonOutlinedStyle"
+                        android:id="@+id/btnCopyPairCommand"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
-                        android:text="@string/btn_pairing_code" />
+                        android:text="@string/pairing_copy_command"
+                        app:icon="@drawable/ic_copy" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnOpenDevOptions"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:text="@string/pairing_open_dev_options"
+                        app:icon="@drawable/ic_settings" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
+            <!-- Custom code -->
             <com.google.android.material.card.MaterialCardView
                 style="?attr/materialCardViewElevatedStyle"
                 android:layout_width="match_parent"
@@ -92,6 +121,14 @@
                         android:layout_height="wrap_content"
                         android:text="@string/btn_set_pairing_code"
                         android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textAppearance="?attr/textAppearanceBodySmall"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:text="@string/pairing_set_hint" />
 
                     <com.google.android.material.textfield.TextInputLayout
                         android:id="@+id/tilNewCode"

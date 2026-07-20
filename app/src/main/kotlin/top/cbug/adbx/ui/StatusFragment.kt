@@ -222,10 +222,13 @@ class StatusFragment : Fragment() {
         // Pairing ACTIVE card — shown when a pairing port is currently
         // open. Android gives the pairing port a short TTL (default 120s),
         // so we surface the full `adb pair host:port code` command the
-        // user can copy straight into a terminal.
+        // Pairing ACTIVE card (shown only when a pairing port is open)
         val pairingActive = m.pairingPort.isNotBlank()
         cardPairingActive.visibility = if (pairingActive) View.VISIBLE else View.GONE
-        cardPairingShortcut.visibility = if (pairingActive) View.GONE else View.VISIBLE
+        // The shortcut card is always visible — it leads to PairingActivity
+        // which exposes the set-code form + dev-options opener, independent
+        // of whether a pairing session is currently running.
+        cardPairingShortcut.visibility = View.VISIBLE
 
         if (pairingActive) {
             val host = if (m.localIp.isNotEmpty()) m.localIp

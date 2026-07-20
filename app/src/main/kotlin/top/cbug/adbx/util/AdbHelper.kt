@@ -208,26 +208,77 @@ object AdbHelper {
     }
 
     /**
-     * Read the temporary ADB pairing port. On Android 14+ the port
-     * lives only in adbd's memory; our LSPosed hook writes it to
-     * /data/local/tmp/adb_x_pairing_port when it can. As a fallback
-     * (and on older ROMs) we check service.adb.tls.port — but that
-     * is usually the main ADB port, not the pairing port.
+     * Read the temporary ADB pairing port. Multiple strategies because no
+     * single API is reliable across ROMs / Android versions:
+     *   1. Marker file written by the LSPosed hook (system_server) at the
+     *      point our hook captures the port + code from AdbDebuggingManager.
+     *      Authoritative when present.
+     *   2. `cmd statusbar` doesn't have this — fall back to grepping the
+     *      marker file in /data/local/tmp OR in our app's data dir.
+     *   3. dumpsys wifi parsing for a "pairing port" line — works on stock
+     *      Android 13+.
+     *   4. dumpsys adb parse for pairing fields.
+     *   5. service.adb.tls.port as last-ditch (often wrong, but better than
+     *      blank when the user really needs a port to try).
+     *
+     * Returns the empty string when nothing usable is found.
      */
     fun getPairingPort(): String {
-        // First try the file the hook writes.
+        // 1. Hook-written marker file (system_server can write here, app can read).
         try {
-            val file = File("/data/local/tmp/adb_x_pairing_port")
-            if (file.exists() && file.canRead()) {
-                val port = file.readText().trim()
-                if (port.isNotEmpty() && port != "0" && port.all { it.isDigit() }) {
+            val f = File("/data/local/tmp/adb_x_pairing_port")
+            if (f.exists() && f.canRead()) {
+                val port = f.readText().trim()
+                if (port.isNotEmpty() && port != "0" && port.all { it.isDigit() }
+                    && port.toInt() in 1024..65535) {
+                    Log.d(TAG, "pairing port via /data/local/tmp marker: $port")
                     return port
                 }
             }
         } catch (_: Throwable) { }
+
+        // 2. dumpsys wifi — stock Android 13+ has a line containing the
+        //    ephemeral pairing port while the dialog is up. Cheap enough
+        //    to grep every time.
+        try {
+            val suResult = ShellUtils.executeSu("dumpsys wifi 2>&1 | grep -iE 'pairing|adb tcp|tls port' | head -20", 3000)
+            if (suResult.isSuccess() && suResult.output.isNotBlank()) {
+                // Match a 4-5 digit port adjacent to pairing/adb hints.
+                val rx = Regex("(?:pairing|adb tcp|tls port)[^0-9]*?(\\d{4,5})")
+                val match = rx.find(suResult.output)
+                if (match != null) {
+                    val port = match.groupValues[1]
+                    if (port.toIntOrNull() in 1024..65535) {
+                        Log.d(TAG, "pairing port via dumpsys wifi: $port")
+                        return port
+                    }
+                }
+            }
+        } catch (_: Throwable) { }
+
+        // 3. dumpsys adb — for "adb_pair" or ephemeral port fields.
+        try {
+            val r = ShellUtils.executeSu("dumpsys adb 2>&1", 3000)
+            if (r.isSuccess() && r.output.isNotBlank()) {
+                val rx = Regex("(?:pairing|ephemeral|temp|adbd pair port)[^0-9]*?(\\d{4,5})")
+                val match = rx.find(r.output)
+                if (match != null) {
+                    val port = match.groupValues[1]
+                    if (port.toIntOrNull() in 1024..65535) {
+                        Log.d(TAG, "pairing port via dumpsys adb: $port")
+                        return port
+                    }
+                }
+            }
+        } catch (_: Throwable) { }
+
+        // 4. setprop fallback — usually NOT the pairing port on Android 14+
+        //    but still informative on older ROMs / when wireless is unused.
         for (prop in arrayOf("service.adb.tls.port", "service.adb.tcp.port")) {
             val out = ShellUtils.execute("getprop " + prop, 500).output.trim()
-            if (out.isNotEmpty() && out != "0" && out.all { it.isDigit() }) {
+            if (out.isNotEmpty() && out != "0" && out.all { it.isDigit() }
+                && out.toInt() in 1024..65535) {
+                Log.d(TAG, "pairing port via setprop $prop: $out (may be main ADB port, not pairing)")
                 return out
             }
         }
@@ -236,13 +287,25 @@ object AdbHelper {
                 val r = ShellUtils.executeSu("getprop " + prop, 500)
                 if (r.isSuccess()) {
                     val out = r.output.trim()
-                    if (out.isNotEmpty() && out != "0" && out.all { it.isDigit() }) {
+                    if (out.isNotEmpty() && out != "0" && out.all { it.isDigit() }
+                        && out.toInt() in 1024..65535) {
+                        Log.d(TAG, "pairing port via setprop $prop (root): $out")
                         return out
                     }
                 }
             }
         }
         return ""
+    }
+
+    /**
+     * Clear the hook-written pairing-port marker. Called when the user
+     * cancels a pairing dialog or when the port becomes stale.
+     */
+    fun clearPairingPort() {
+        try {
+            ShellUtils.executeSu("rm -f /data/local/tmp/adb_x_pairing_port", 1000)
+        } catch (_: Throwable) { }
     }
 
     /**

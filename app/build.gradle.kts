@@ -68,7 +68,6 @@ dependencies {
 }
 
 
-// auto-fix: added stub test task (was missing). Replace with real JUnit/Robolectric tests.
 tasks.withType<Test> {
     useJUnit()
 }
