@@ -138,6 +138,43 @@ object ShellUtils {
     }
 
     /**
+     * Run a shell command via su, piping the given content to stdin.
+     * Used when the caller wants to send a multi-line script with
+     * heredocs, quotes, and dollar-signs that would otherwise be
+     * eaten by the outer sh -c '...' wrapper.
+     *
+     * We use `sh -s "$@"` so the script is read from stdin, with all
+     * its inner $ characters passed through verbatim. su 0 passes the
+     * stdin through unchanged, so the heredoc body arrives intact.
+     */
+    fun executeSuWithStdin(content: String, timeoutMs: Long = 10000L): Result {
+        return try {
+            val cached = workingSuPath
+            val candidates = if (cached != null) listOf(cached) + SU_PATHS else SU_PATHS
+            for (suPath in candidates) {
+                try {
+                    val pb = ProcessBuilder(*suPath.toTypedArray(), "sh", "-s")
+                        .redirectErrorStream(true)
+                    val proc = pb.start()
+                    proc.outputStream.bufferedWriter().use { it.write(content); it.flush() }
+                    proc.outputStream.close()
+                    val finished = proc.waitFor(timeoutMs, TimeUnit.MILLISECONDS)
+                    if (!finished) { proc.destroyForcibly(); continue }
+                    val out = proc.inputStream.bufferedReader().readText()
+                    val result = Result(proc.exitValue(), out)
+                    if (result.isSuccess() || out.isNotBlank()) {
+                        workingSuPath = suPath
+                    }
+                    return result
+                } catch (_: Exception) { }
+            }
+            Result(-1, "su not found")
+        } catch (e: Exception) {
+            Result(-1, e.message ?: "")
+        }
+    }
+
+    /**
      * TODO: document probeRoot
      * @param false
      */

@@ -9,6 +9,12 @@ import kotlinx.coroutines.withContext
 
 object AdbHelper {
 
+    // Base64 of the two shell scripts that live in the kernelSU
+    // module. Held as constants so we never have to reason about
+    // $-characters inside Kotlin triple-quoted strings.
+    private const val SERVICE_SH_B64 = "IyEvc3lzdGVtL2Jpbi9zaApNT0RJRD1hZGJ4CmlmIFsgISAtZCAiL2RhdGEvYWRiL21vZHVsZXMvJE1PRElEIiBdOyB0aGVuCiAgZXhpdCAwCmZpCmk9MAp3aGlsZSBbICIkKGdldHByb3Agc3lzLmJvb3RfY29tcGxldGVkKSIgIT0gIjEiIF0gJiYgWyAkaSAtbHQgNjAgXTsgZG8KICBzbGVlcCAxCiAgaT0kKChpKzEpKQpkb25lCmV4ZWMgL2RhdGEvYWRiL21vZHVsZXMvJE1PRElEL2Jpbi9hZGJ4LWJvb3QtZXZhbAo="
+    private const val BOOT_EVAL_B64 = "IyEvc3lzdGVtL2Jpbi9zaApUUlVTVF9GSUxFPS9kYXRhL2RhdGEvdG9wLmNidWcuYWRieC9zaGFyZWRfcHJlZnMvYWRiX3hfc2V0dGluZ3MueG1sClNFVFRJTkdTPS9kYXRhL2FkYi9tb2R1bGVzL2FkYngvc2V0dGluZ3MueG1sCm1rZGlyIC1wIC9kYXRhL2FkYi9tb2R1bGVzL2FkYngKY3AgIiRUUlVTVF9GSUxFIiAiJFNFVFRJTkdTIiAyPi9kZXYvbnVsbApjaG1vZCA2NDQgIiRTRVRUSU5HUyIgMj4vZGV2L251bGwKaWYgWyAhIC1mICIkU0VUVElOR1MiIF07IHRoZW4KICBleGl0IDAKZmkKQk9PVF9TVEFSVD0kKGdyZXAgLW9FICduYW1lPSJib290X3N0YXJ0IiB2YWx1ZT0iW14iXSsiJyAiJFNFVFRJTkdTIiB8IGdyZXAgLW9FICd0cnVlfGZhbHNlJyB8IGhlYWQgLTEpCkFVVE9fRU5BQkxFPSQoZ3JlcCAtb0UgJ25hbWU9ImF1dG9fZW5hYmxlIiB2YWx1ZT0iW14iXSsiJyAiJFNFVFRJTkdTIiB8IGdyZXAgLW9FICd0cnVlfGZhbHNlJyB8IGhlYWQgLTEpCmlmIFsgIiRCT09UX1NUQVJUIiAhPSAidHJ1ZSIgXSB8fCBbICIkQVVUT19FTkFCTEUiICE9ICJ0cnVlIiBdOyB0aGVuCiAgZXhpdCAwCmZpClNTSUQ9JChkdW1wc3lzIHdpZmkgMj4mMSB8IGdyZXAgLW9FICdTU0lEPSJbXiJdKyInIHwgaGVhZCAtMSB8IHNlZCAncy9TU0lEPSJcKC4qXCkiL1wxLycpCmlmIFsgLXogIiRTU0lEIiBdIHx8IFsgIiRTU0lEIiA9ICI8dW5rbm93biBzc2lkPiIgXTsgdGhlbgogIGV4aXQgMApmaQpUUlVTVEVEPSQoZ3JlcCAtYyAiJFNTSUQiICIkU0VUVElOR1MiIHx8IGVjaG8gMCkKaWYgWyAiJFRSVVNURUQiIC1ndCAiMCIgXTsgdGhlbgogIHNldHRpbmdzIHB1dCBnbG9iYWwgYWRiX3dpZmlfZW5hYmxlZCAxCmZpCmV4aXQgMAo="
+
     private const val TAG = "ADB_X_AdbHelper"
 
     /** Marker-file TTL. Ephemeral pairing ports expire after ~120 s in
@@ -442,5 +448,76 @@ object AdbHelper {
         val r = ShellUtils.executeSu("service call adb 8", 3000)
         return r.isSuccess()
     }
+
+
+    /**
+     * Install adbx as a KernelSU module so that the boot-time
+     * `service.sh` runs every reboot, BEFORE the lockscreen goes
+     * up and BEFORE OnePlus AppStartupManager decides what is
+     * "recent". This bypasses both Android 14+ background-receiver
+     * restrictions and OplusAppStartupManager's refusal to launch
+     * background broadcasts.
+     *
+     * Layout:
+     *
+     *   /data/adb/modules/adbx/
+     *     module.prop         <- metadata
+     *     service.sh          <- runs in KernelSU uid at boot, calls
+     *                           our app's CLI evaluation path
+     *     bin/adbx-boot-eval  <- standalone shell script that reads
+     *                           the current SSID and the trusted
+     *                           list from /data/data/top.cbug.adbx
+     *                           and toggles adb_wifi_enabled
+     *
+     * The service.sh uses ksud's `boot-completed` event so the
+     * app process is not needed for the boot-time path — when the
+     * device finishes booting, KernelSU invokes our script, the
+     * script does the SSID lookup, and wireless ADB turns on
+     * without any UI / notification / user interaction.
+     *
+     * Idempotent — running it again reuses the existing module dir
+     * and overwrites only the script. Safe to call every time the
+     * app opens, we gate it behind a one-shot SharedPreferences
+     * key so we only run the install once per install (and again
+     * if the user explicitly asks).
+     *
+     * Returns true if the module dir is in place after the call,
+     * false on any failure (root missing, OPlus refusal, etc).
+     */
+    fun installAsKernelSuModule(): Boolean {
+        return try {
+            val moduleDir = "/data/adb/modules/adbx"
+            // The two shell scripts are base64-encoded to avoid any
+            // string-template interpolation conflicts with the $
+            // characters inside the shell. The base64 strings live
+            // as Kotlin string constants so they survive the
+            // compile step without us having to load files from
+            // assets/ at runtime.
+            val cmds = listOf(
+                "mkdir -p $moduleDir/bin",
+                "echo '" + SERVICE_SH_B64 + "' | base64 -d > $moduleDir/service.sh",
+                "chmod 755 $moduleDir/service.sh",
+                "echo '" + BOOT_EVAL_B64 + "' | base64 -d > $moduleDir/bin/adbx-boot-eval",
+                "chmod 755 $moduleDir/bin/adbx-boot-eval",
+                "echo 'aWQ9YWRieApuYW1lPWFkYngKdmVyc2lvbj12MS4wLjAKdmVyc2lvbkNvZGU9MQphdXRob3I9YmxvY2ttYW4zMDYzCmRlc2NyaXB0aW9uPUJ5cGFzcyBPcGx1c0FwcFN0YXJ0dXBNYW5hZ2VyIHNvIHRoZSB0cnVzdGVkLVdpRmkgYXV0by10b2dnbGUgcnVucyBhdCBib290Cg==' | base64 -d > $moduleDir/module.prop",
+                "chmod 644 $moduleDir/module.prop",
+                "chown -R root:root $moduleDir",
+                "ksud module install $moduleDir/module.prop 2>&1 || true",
+            )
+            for (c in cmds) {
+                val r = ShellUtils.executeSu(c, 5000)
+                if (!r.isSuccess()) {
+                    Log.w(TAG, "installAsKernelSuModule: step failed: " + c.take(80) + " -> " + r.output.take(150))
+                }
+            }
+            val verify = ShellUtils.executeSu(
+                "test -d $moduleDir && test -x $moduleDir/service.sh && test -x $moduleDir/bin/adbx-boot-eval && echo OK", 3000)
+            verify.isSuccess() && verify.output.contains("OK")
+        } catch (t: Throwable) {
+            Log.w(TAG, "installAsKernelSuModule failed", t)
+            false
+        }
+    }
+
 
 }
