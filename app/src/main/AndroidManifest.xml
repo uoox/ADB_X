@@ -10,10 +10,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTIVITY" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
 
     <application
         android:name=".App"
@@ -66,15 +64,19 @@
            </intent-filter>
        </receiver>
 
-       <!-- Sticky foreground service that owns the TrustedWifiWatcher.
-            Started from MainActivity.onCreate and from BootReceiver on
-            device boot. foregroundServiceType="dataSync" — connectivity
-            events are how the watcher learns when the user moves between
-            SSIDs. -->
-       <service
-           android:name=".TrustedWifiService"
-           android:exported="false"
-           android:foregroundServiceType="dataSync" />
+       <!-- Triggered by the system on every Wi-Fi state change. Uses
+            goAsync() for up to 10 s of background execution — no
+            foreground service required. The companion action
+            WIFI_EVAL lets MainActivity invoke the same evaluate()
+            path on resume so the cold-start case is handled. -->
+       <receiver
+           android:name=".WifiStateReceiver"
+           android:exported="true">
+           <intent-filter>
+               <action android:name="android.net.wifi.NETWORK_STATE_CHANGED" />
+               <action android:name="top.cbug.adbx.action.WIFI_EVAL" />
+           </intent-filter>
+       </receiver>
 
         <meta-data
             android:name="xposedmodule"

@@ -46,7 +46,6 @@ import top.cbug.adbx.ui.WifiSettingsActivity
 import top.cbug.adbx.util.AdbHelper
 import top.cbug.adbx.util.LocaleHelper
 import top.cbug.adbx.util.ShellUtils
-import top.cbug.adbx.util.TrustedWifiWatcher
 import top.cbug.adbx.util.WifiHelper
 import top.cbug.adbx.util.XposedStatus
 
@@ -78,11 +77,6 @@ class MainActivity : AppCompatActivity() {
     private var pairingPollJob: Job? = null
     private var wifiObserver: android.database.ContentObserver? = null
     private var adbObserver: android.database.ContentObserver? = null
-    private var trustedWifiWatcher: TrustedWifiWatcher? = null
-    // (TrustedWifiWatcher is now created lazily via TrustedWifiService
-    //  in onCreate. The field stays as a placeholder for binary compat
-    //  with downstream readers — actually unused.)
-
     // Cached values for click-to-copy + cross-fragment reads.
     private var cachedLocalIp: String = ""
     private var cachedPort: String = ""
@@ -116,11 +110,13 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Foreground service that owns TrustedWifiWatcher — survives
-        // app backgrounding and is what enables wireless ADB on the
-        // trusted-SSID connect event. Start it on every onCreate so
-        // it can never be silently missing.
-        top.cbug.adbx.TrustedWifiService.start(this)
+        // Fire the Wi-Fi evaluate receiver once — covers the cold-start
+        // case where the app launches on a trusted SSID before any
+        // NETWORK_STATE_CHANGED has fired. The receiver reads the
+        // current SSID, looks up Settings.trustedSsids, and toggles
+        // wireless ADB if appropriate. Subsequent SSID changes are
+        // delivered by the system automatically.
+        top.cbug.adbx.WifiStateReceiver.fireOnce(this)
         try {
             setContentView(R.layout.activity_main)
             AppSettings.load(this)
@@ -239,16 +235,8 @@ class MainActivity : AppCompatActivity() {
                 kotlinx.coroutines.delay(PAIRING_POLL_INTERVAL_MS)
             }
         }
-        startTrustedWifiWatcher()
-    }
-
-    private fun startTrustedWifiWatcher() {
-        // The NetworkCallback is now owned by TrustedWifiService
-        // (started from onCreate + BootReceiver). The UI just refreshes
-        // the displayed status so the user sees an up-to-date card.
-        val w = top.cbug.adbx.util.TrustedWifiWatcher.get(this)
-        if (!w.isRunning()) w.start()
-        w.refreshCurrentSsid()
+        // (WifiStateReceiver is already fired in onCreate so the
+        // cold-start case is covered; nothing extra needed on resume.)
     }
 
     override fun onPause() {
@@ -257,11 +245,6 @@ class MainActivity : AppCompatActivity() {
         wifiObserver = null
         pairingPollJob?.cancel()
         pairingPollJob = null
-        // The TrustedWifiWatcher NetworkCallback is now owned by the
-        // TrustedWifiService (a foreground service), so it survives
-        // app backgrounding. We do NOT stop it here on purpose — the
-        // auto-toggle is what keeps the user's wireless ADB armed
-        // while they walk into a coffee shop they have marked trusted.
     }
 
     override fun onDestroy() {
@@ -577,15 +560,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    /** Expose the TrustedWifiWatcher last action info to the Status tab so it
-     *  can render a "last triggered 5 min ago" subtitle. Returns "" / 0L when
-     *  the watcher has never acted. Reads the process-wide singleton that
-     *  TrustedWifiService creates in onCreate — that instance is what
-     *  survives app backgrounding and reboots. */
-    fun getTrustedWifiLastAction(): String =
-        top.cbug.adbx.util.TrustedWifiWatcher.get(this).lastAction()
-    fun getTrustedWifiLastActionMs(): Long =
-        top.cbug.adbx.util.TrustedWifiWatcher.get(this).lastActionMs()
+    /** Read the most recent receiver action from SharedPreferences so the
+     *  Status tab can show "last triggered 5 min ago". The receiver
+     *  writes these keys via WifiStateReceiver.recordLastTrigger() every
+     *  time it actually toggles ADB. Returns "" / 0L when the receiver
+     *  has never acted in this install. */
+    fun getTrustedWifiLastAction(): String {
+        return try {
+            getSharedPreferences(top.cbug.adbx.WifiStateReceiver.PREFS, android.content.Context.MODE_PRIVATE)
+                .getString(top.cbug.adbx.WifiStateReceiver.KEY_SSID, "") ?: ""
+        } catch (_: Throwable) { "" }
+    }
+    fun getTrustedWifiLastActionMs(): Long {
+        return try {
+            getSharedPreferences(top.cbug.adbx.WifiStateReceiver.PREFS, android.content.Context.MODE_PRIVATE)
+                .getLong(top.cbug.adbx.WifiStateReceiver.KEY_MS, 0L)
+        } catch (_: Throwable) { 0L }
+    }
 
     // ---------------- Misc helpers ----------------
 

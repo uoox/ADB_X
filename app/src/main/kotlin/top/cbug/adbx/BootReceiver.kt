@@ -5,24 +5,25 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import top.cbug.adbx.store.Settings
+import top.cbug.adbx.util.AdbHelper
+import top.cbug.adbx.util.WifiHelper
 
 /**
- * Boot receiver — wakes the app process and starts the trusted-WiFi
- * foreground service. Android 14+ refuses
- * [Context.startForegroundService] from a background broadcast receiver
- * with `ForegroundServiceStartNotAllowedException`, so the receiver
- * cannot directly elevate the process. The workaround used here:
+ * Boot receiver — runs the trusted-WiFi evaluate logic inline on
+ * boot. We cannot rely on [WifiStateReceiver.fireOnce] from here
+ * because that requires the app process to be alive, and Android 14+
+ * will not spawn a background process for a broadcast that itself
+ * was delivered to a background process.
  *
- *   1. launch the MainActivity with FLAG_ACTIVITY_NEW_TASK from the
- *      receiver — that briefly takes the process to the foreground
- *      long enough for the activity's onCreate → TrustedWifiService.start()
- *      to be considered a foreground start.
- *   2. the activity itself owns the service-start path so we keep
- *      the receiver logic minimal.
+ * The receiver:
+ *   1. honours [Settings.bootStart]
+ *   2. reads the current SSID via [WifiHelper.getCurrentSsid]
+ *   3. applies the same trusted-set logic as [WifiStateReceiver]
  *
- * If you replace this with a WorkManager task or a [JobScheduler]
- * job, both of those count as the foreground-process start already
- * when [Settings.bootStart] is on.
+ * The inline logic here is intentionally a copy — duplication is
+ * the lesser evil here vs. trying to share code via a context that
+ * doesn't exist yet. Both paths funnel into the same
+ * [AdbHelper.enable/disable] calls.
  */
 class BootReceiver : BroadcastReceiver() {
 
@@ -43,13 +44,33 @@ class BootReceiver : BroadcastReceiver() {
             return
         }
 
-        Log.d(TAG, "Boot completed — launching MainActivity to arm TrustedWifiService")
-        val activity = Intent(context, top.cbug.adbx.MainActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        try {
-            context.startActivity(activity)
-        } catch (t: Throwable) {
-            Log.w(TAG, "BootReceiver failed to launch MainActivity", t)
+        if (!Settings.autoEnable && !Settings.autoDisable) {
+            Log.d(TAG, "Boot completed — no auto-toggle rules armed, skipping")
+            return
+        }
+
+        val ssid = WifiHelper.getCurrentSsid(context)
+        Log.d(TAG, "Boot completed — current SSID='" + ssid + "'")
+        if (ssid.isBlank()) {
+            Log.d(TAG, "Boot completed — empty SSID, skipping")
+            return
+        }
+
+        val trusted = Settings.isTrusted(ssid)
+        when {
+            trusted && Settings.autoEnable -> {
+                Log.i(TAG, "Boot completed — trusted SSID " + ssid + ", enabling wireless ADB")
+                AdbHelper.enableWirelessAdb()
+                WifiStateReceiver.recordLastTriggerFromBoot(context, ssid)
+            }
+            !trusted && Settings.autoDisable -> {
+                Log.i(TAG, "Boot completed — non-trusted SSID " + ssid + ", disabling wireless ADB")
+                AdbHelper.disableWirelessAdb()
+                WifiStateReceiver.recordLastTriggerFromBoot(context, ssid)
+            }
+            else -> {
+                Log.d(TAG, "Boot completed — no action (trusted=" + trusted + ")")
+            }
         }
     }
 }
