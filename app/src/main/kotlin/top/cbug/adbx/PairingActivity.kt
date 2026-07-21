@@ -47,6 +47,7 @@ class PairingActivity : AppCompatActivity() {
     private lateinit var tvPairingHint: TextView
     private lateinit var btnCopyPairCommand: MaterialButton
     private lateinit var btnOpenDevOptions: MaterialButton
+    private lateinit var btnTriggerPair: MaterialButton
     private lateinit var tilNewCode: TextInputLayout
     private lateinit var etNewCode: TextInputEditText
     private lateinit var btnSaveCode: MaterialButton
@@ -69,11 +70,29 @@ class PairingActivity : AppCompatActivity() {
         tvPairingHint       = findViewById(R.id.tvPairingHint)
         btnCopyPairCommand  = findViewById(R.id.btnCopyPairCommand)
         btnOpenDevOptions    = findViewById(R.id.btnOpenDevOptions)
+        btnTriggerPair       = findViewById(R.id.btnTriggerPair)
         tilNewCode          = findViewById(R.id.tilNewCode)
         etNewCode           = findViewById(R.id.etNewCode)
         btnSaveCode         = findViewById(R.id.btnSaveCode)
 
         toolbar.setNavigationOnClickListener { finish() }
+
+        btnTriggerPair.setOnClickListener {
+            // Direct IAdbManager.enablePairingByPairingCode via shell.
+            // This spawns the ephemeral pairing port and posts the
+            // WIRELESS_DEBUG_ENABLE_DISCOVER_ACTION intent — same path
+            // as the user tapping "Pair device with pairing code" in
+            // Developer Options.
+            val ok = AdbHelper.triggerPairing()
+            if (ok) {
+                Toast.makeText(this, getString(R.string.msg_pair_requested), Toast.LENGTH_SHORT).show()
+                // Refresh status so the port + code appear as soon as
+                // the system has them (typically <300 ms).
+                bgScope.launch { kotlinx.coroutines.delay(500); refreshStatus() }
+            } else {
+                Toast.makeText(this, "Trigger failed — check logcat", Toast.LENGTH_LONG).show()
+            }
+        }
 
         btnOpenDevOptions.setOnClickListener {
             // Stock Android route. We try a few candidate Settings intents

@@ -142,4 +142,5 @@
     <string name="trusted_wifi_channel_desc">Persistent notification shown while the auto-toggle service is running</string>
     <string name="trusted_wifi_notif_title">ADB_X auto-toggle running</string>
     <string name="trusted_wifi_notif_text">Watching the connected Wi-Fi to toggle wireless ADB</string>
+    <string name="pairing_trigger_now">Trigger pairing dialog</string>
 </resources>

@@ -135,4 +135,5 @@
     <string name="trusted_wifi_channel_desc">自动开关服务运行时显示的常驻通知</string>
     <string name="trusted_wifi_notif_title">ADB_X 自动开关运行中</string>
     <string name="trusted_wifi_notif_text">监听当前 Wi-Fi,自动切换无线调试</string>
+    <string name="pairing_trigger_now">立即触发配对对话框</string>
 </resources>

@@ -92,6 +92,14 @@ adb pair 192.168.1.8:5555 123456" />
                         app:icon="@drawable/ic_copy" />
 
                     <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnTriggerPair"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:text="@string/pairing_trigger_now"
+                        app:icon="@drawable/ic_pairing" />
+
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnOpenDevOptions"
                         style="?attr/materialButtonOutlinedStyle"
                         android:layout_width="match_parent"

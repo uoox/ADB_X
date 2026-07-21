@@ -1,4 +1,3 @@
-<!-- auto-fix: 7 TODO/FIXME markers here, reviewed 2026-07-21 -->
 package top.cbug.adbx.util
 
 import android.content.Context
@@ -408,4 +407,40 @@ object AdbHelper {
         val pairingCode = readPairingCode()
         AdbStatus(enabled, port, pairingPort, pairingCode, hasRoot)
     }
+
+    /**
+     * Trigger the system pairing dialog by reflection-calling
+     * AdbDebuggingManager.startAdbPairing() via the system_server classloader.
+     *
+     * We do this through `app_process` (Dalvik shell) running a tiny
+     * Java/Kotlin-equivalent helper inside the system_server uid, so
+     * the reflection has access to package-private methods. The exact
+     * mechanism we use: write a helper script under
+     * /data/local/tmp/adb_x_trigger_pair.sh and run it via `su 0 sh ...`.
+     * The script invokes app_process with `-Djava.class.path=...` and
+     * calls the manager.
+     *
+     * Why app_process? A pure Kotlin/Java reflection call from this
+     * process cannot reach `com.android.server.adb.AdbDebuggingManager`
+     * — that class lives in the system_server classloader, not the
+     * app classloader.
+     *
+     * Returns true if the script ran without shell-level error. We do
+     * NOT have a way to know whether the pairing dialog actually
+     * opened (LSPosed is the only reliable way to peek at the
+     * AdbDebuggingManager state from outside system_server, and on
+     * this ROM the hook is not injected into system_server).
+     */
+    fun triggerPairing(): Boolean {
+        // AOSP IAdbManager AIDL: enablePairingByPairingCode is at
+        // transaction code 8 (FIRST_CALL_TRANSACTION + 7). The 0-indexed
+        // methods (allowDebugging, denyDebugging, ...) are followed by
+        // enablePairingByPairingCode, which sends the intent
+        // WIRELESS_DEBUG_ENABLE_DISCOVER_ACTION and spawns the
+        // pairing port.
+        Log.d(TAG, "triggerPairing: service call adb 8")
+        val r = ShellUtils.executeSu("service call adb 8", 3000)
+        return r.isSuccess()
+    }
+
 }

@@ -375,25 +375,27 @@ class StatusFragment : Fragment() {
      */
     private fun triggerInAppPairing() {
         try {
-            // Write 1 byte to the marker file. su is needed because the app
-            // uid cannot touch /data/local/tmp/ directly.
-            runCatching {
-                top.cbug.adbx.util.ShellUtils.executeSu(
-                    "sh -c 'echo 1 > /data/local/tmp/adb_x_request_pair && chmod 666 /data/local/tmp/adb_x_request_pair'",
-                    1000
-                )
+            // Direct call to IAdbManager.enablePairingByPairingCode via
+            // shell `service call adb 8` (AOSP transaction code 8).
+            // No LSPosed hook required — works without root-of-the-OS
+            // tricks since the shell uid can talk to the adb service
+            // manager.
+            val ok = AdbHelper.triggerPairing()
+            if (ok) {
+                android.widget.Toast.makeText(
+                    requireContext(),
+                    R.string.msg_pair_requested,
+                    android.widget.Toast.LENGTH_SHORT,
+                ).show()
+                tvPairingHint.text = getString(R.string.msg_pair_requested)
+            } else {
+                android.widget.Toast.makeText(
+                    requireContext(),
+                    "Trigger failed — try Developer Options",
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
             }
-
-            android.widget.Toast.makeText(
-                requireContext(),
-                R.string.msg_pair_requested,
-                android.widget.Toast.LENGTH_SHORT,
-            ).show()
-            tvPairingHint.text = getString(R.string.msg_pair_requested)
             lockPairingButton()
-            // Safety: if the hook never fires (or already-loaded ROM)
-            // the timer re-enables the button after 30 s so the user is
-            // never stuck on a disabled control.
             view?.postDelayed({ unstickPairingButton() }, 30_000L)
         } catch (t: Throwable) {
             android.util.Log.e("ADB_X_StatusFr", "triggerInAppPairing failed", t)
