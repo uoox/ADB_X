@@ -79,6 +79,9 @@ class MainActivity : AppCompatActivity() {
     private var wifiObserver: android.database.ContentObserver? = null
     private var adbObserver: android.database.ContentObserver? = null
     private var trustedWifiWatcher: TrustedWifiWatcher? = null
+    // (TrustedWifiWatcher is now created lazily via TrustedWifiService
+    //  in onCreate. The field stays as a placeholder for binary compat
+    //  with downstream readers — actually unused.)
 
     // Cached values for click-to-copy + cross-fragment reads.
     private var cachedLocalIp: String = ""
@@ -113,6 +116,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Foreground service that owns TrustedWifiWatcher — survives
+        // app backgrounding and is what enables wireless ADB on the
+        // trusted-SSID connect event. Start it on every onCreate so
+        // it can never be silently missing.
+        top.cbug.adbx.TrustedWifiService.start(this)
         try {
             setContentView(R.layout.activity_main)
             AppSettings.load(this)
@@ -235,15 +243,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startTrustedWifiWatcher() {
-        // When the user lands on a SSID that is in
-        // Settings.trustedSsids, we enable wireless ADB; when they leave
-        // one, Settings.autoDisable decides whether to tear it back down.
-        // Started here (not in onCreate) so it lines up with the
-        // ContentObserver's foreground-only model.
-        if (trustedWifiWatcher == null) {
-            trustedWifiWatcher = TrustedWifiWatcher(this)
-        }
-        trustedWifiWatcher?.start()
+        // The NetworkCallback is now owned by TrustedWifiService
+        // (started from onCreate + BootReceiver). The UI just refreshes
+        // the displayed status so the user sees an up-to-date card.
+        val w = top.cbug.adbx.util.TrustedWifiWatcher.get(this)
+        if (!w.isRunning()) w.start()
+        w.refreshCurrentSsid()
     }
 
     override fun onPause() {
@@ -252,10 +257,11 @@ class MainActivity : AppCompatActivity() {
         wifiObserver = null
         pairingPollJob?.cancel()
         pairingPollJob = null
-        // Stop the trusted-WiFi watcher. Android 14+ restricts background
-        // network callbacks, so there is no point in keeping it alive
-        // when the user is not looking at the UI.
-        trustedWifiWatcher?.stop()
+        // The TrustedWifiWatcher NetworkCallback is now owned by the
+        // TrustedWifiService (a foreground service), so it survives
+        // app backgrounding. We do NOT stop it here on purpose — the
+        // auto-toggle is what keeps the user's wireless ADB armed
+        // while they walk into a coffee shop they have marked trusted.
     }
 
     override fun onDestroy() {
@@ -573,9 +579,13 @@ class MainActivity : AppCompatActivity() {
 
     /** Expose the TrustedWifiWatcher last action info to the Status tab so it
      *  can render a "last triggered 5 min ago" subtitle. Returns "" / 0L when
-     *  the watcher has never acted. */
-    fun getTrustedWifiLastAction(): String = trustedWifiWatcher?.lastAction() ?: ""
-    fun getTrustedWifiLastActionMs(): Long = trustedWifiWatcher?.lastActionMs() ?: 0L
+     *  the watcher has never acted. Reads the process-wide singleton that
+     *  TrustedWifiService creates in onCreate — that instance is what
+     *  survives app backgrounding and reboots. */
+    fun getTrustedWifiLastAction(): String =
+        top.cbug.adbx.util.TrustedWifiWatcher.get(this).lastAction()
+    fun getTrustedWifiLastActionMs(): Long =
+        top.cbug.adbx.util.TrustedWifiWatcher.get(this).lastActionMs()
 
     // ---------------- Misc helpers ----------------
 

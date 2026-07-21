@@ -137,4 +137,9 @@
     <string name="trusted_wifi_ago_minutes">%1$d min ago</string>
     <string name="trusted_wifi_ago_hours">%1$d h ago</string>
     <string name="trusted_wifi_just_now">just now</string>
+    <!-- Trusted-WiFi foreground service notification -->
+    <string name="trusted_wifi_channel_name">Trusted Wi-Fi auto-toggle</string>
+    <string name="trusted_wifi_channel_desc">Persistent notification shown while the auto-toggle service is running</string>
+    <string name="trusted_wifi_notif_title">ADB_X auto-toggle running</string>
+    <string name="trusted_wifi_notif_text">Watching the connected Wi-Fi to toggle wireless ADB</string>
 </resources>

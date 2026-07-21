@@ -34,12 +34,13 @@ import android.util.Log
  * point in keeping it alive when the user has the app closed. The
  * MainActivity recreates it on resume.
  */
-class TrustedWifiWatcher(private val context: Context) {
+class TrustedWifiWatcher(context: Context) {
+    private val appContext = context.applicationContext
     private val tag = "ADB_X_TrustWifi"
     private val cm: ConnectivityManager =
-        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        appContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     private val wm: WifiManager =
-        context.getSystemService(Context.WIFI_SERVICE) as WifiManager
+        appContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
 
     private var callback: ConnectivityManager.NetworkCallback? = null
     private var lastSsid: String = ""
@@ -49,6 +50,8 @@ class TrustedWifiWatcher(private val context: Context) {
     /** Toggle the most recent SSID we acted on. Empty = never acted. */
     fun lastAction(): String = lastTriggerSsid
     fun lastActionMs(): Long = lastTriggerMs
+    /** Whether the NetworkCallback is currently registered. */
+    fun isRunning(): Boolean = callback != null
 
     fun start() {
         if (callback != null) return
@@ -166,6 +169,24 @@ class TrustedWifiWatcher(private val context: Context) {
         } catch (t: Throwable) {
             Log.w(tag, "readSsid failed", t)
             ""
+        }
+    }
+
+    companion object {
+        @Volatile private var shared: TrustedWifiWatcher? = null
+
+        /**
+         * Get-or-create a process-wide watcher. Used by the
+         * foreground service so the same instance survives across
+         * Activity recreation.
+         */
+        @Synchronized
+        fun get(context: Context): TrustedWifiWatcher {
+            val existing = shared
+            if (existing != null) return existing
+            val created = TrustedWifiWatcher(context.applicationContext)
+            shared = created
+            return created
         }
     }
 }

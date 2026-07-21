@@ -130,4 +130,9 @@
     <string name="trusted_wifi_ago_minutes">%1$d 分钟前</string>
     <string name="trusted_wifi_ago_hours">%1$d 小时前</string>
     <string name="trusted_wifi_just_now">刚刚</string>
+    <!-- 信任 Wi-Fi 前台服务通知 -->
+    <string name="trusted_wifi_channel_name">信任 Wi-Fi 自动开关</string>
+    <string name="trusted_wifi_channel_desc">自动开关服务运行时显示的常驻通知</string>
+    <string name="trusted_wifi_notif_title">ADB_X 自动开关运行中</string>
+    <string name="trusted_wifi_notif_text">监听当前 Wi-Fi,自动切换无线调试</string>
 </resources>
