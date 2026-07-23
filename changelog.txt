@@ -1,3 +1,33 @@
+# ADB_X v1.2.1
+
+## Bug fixes
+- Fixed a duplicated `when` branch in the bottom-navigation handler
+  (`R.id.tab_networks` was listed twice) — harmless but dead.
+- `PairingReceiver` now actually persists the captured pairing port/code:
+  it wrote to `/data/local/tmp` with a plain app-uid file write (which
+  always fails there) despite its own doc promising an elevated `su`
+  write. It now falls back to `ShellUtils.executeSu`, matching the rest
+  of the app.
+
+## Feature completion
+- Wired up the boot-time KernelSU/Magisk module installer. The
+  `installAsKernelSuModule()` path shipped in 1.2.0 but was never
+  invoked; it now runs once per app version on a background thread
+  (root-gated, idempotent) so the trusted-Wi-Fi rule can fire at boot
+  before the lockscreen, where OnePlus throttles background broadcasts.
+
+## Cleanup
+- Removed the dead `TrustedWifiWatcher` (superseded by
+  `WifiStateReceiver`), the never-called `MainActivity.pollPairingPort()`
+  and `WifiAdapter.refresh()`, and dead null/context guards.
+- Removed 37 leftover `TODO: document` placeholder KDoc blocks that the
+  1.2.0 notes claimed were already gone.
+- Corrected stale doc references to the removed `handleLoadPackage`
+  callback, fixed duplicated comment numbering, and de-duplicated the
+  `ACCESS_NETWORK_STATE` / `ACCESS_WIFI_STATE` manifest permissions.
+- Replaced the placeholder unit test with real `WifiHelper.cleanSsid`
+  coverage.
+
 # ADB_X v1.2.0
 
 ## Migrated to the modern libxposed API (102)

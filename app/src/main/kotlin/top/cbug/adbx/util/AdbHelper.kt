@@ -28,7 +28,7 @@ object AdbHelper {
     }
 
     /** Get current ADB port - prefers non-root method first */
-    fun getCurrentPort(context: Context?): String {
+    fun getCurrentPort(): String {
         val nr = getCurrentPortNonRoot()
         if (nr.isNotEmpty()) return nr
         if (!ShellUtils.hasRoot()) return ""
@@ -157,12 +157,10 @@ object AdbHelper {
 
         // 3. Try non-root via content resolver
         try {
-            if (context != null) {
-                val v = Settings.Global.getInt(context.contentResolver, "adb_wifi_enabled", 0)
-                if (v == 1) {
-                    Log.d(TAG, "adb_wifi_enabled=1 via ContentResolver")
-                    return true
-                }
+            val v = Settings.Global.getInt(context.contentResolver, "adb_wifi_enabled", 0)
+            if (v == 1) {
+                Log.d(TAG, "adb_wifi_enabled=1 via ContentResolver")
+                return true
             }
         } catch (_: Exception) { }
 
@@ -180,9 +178,6 @@ object AdbHelper {
         return false
     }
 
-    /**
-     * TODO: document enableWirelessAdb
-     */
     fun enableWirelessAdb(): Boolean {
         Log.d(TAG, "enableWirelessAdb")
         // On modern Android (14+, Rust adbd) the authoritative way is
@@ -195,9 +190,6 @@ object AdbHelper {
         return true
     }
 
-    /**
-     * TODO: document disableWirelessAdb
-     */
     fun disableWirelessAdb(): Boolean {
         Log.d(TAG, "disableWirelessAdb")
         ShellUtils.executeSu("settings put global adb_wifi_enabled 0", 1500)
@@ -206,10 +198,6 @@ object AdbHelper {
         return true
     }
 
-    /**
-     * TODO: document setFixedPort
-     * @param Int
-     */
     fun setFixedPort(port: Int): Boolean {
         ShellUtils.executeSu("settings put global adb_wifi_enabled 1", 1000)
         ShellUtils.executeSu("setprop service.adb.tcp.port " + port, 500)
@@ -219,10 +207,6 @@ object AdbHelper {
         return r.isSuccess()
     }
 
-    /**
-     * TODO: document setPairingCode
-     * @param String
-     */
     fun setPairingCode(code: String): Boolean {
         if (code.length !in 6..8 || !code.all { it.isDigit() }) return false
         writePairingCodeFile(code)
@@ -238,9 +222,6 @@ object AdbHelper {
             2000)
     }
 
-    /**
-     * TODO: document readPairingCode
-     */
     fun readPairingCode(): String {
         // 1. Direct file read
         try {
@@ -385,9 +366,6 @@ object AdbHelper {
         } catch (_: Throwable) { }
     }
 
-    /**
-     * TODO: document clearPairingCode
-     */
     fun clearPairingCode() {
         ShellUtils.executeSu("rm -f /data/local/tmp/adb_x_pairing_code", 1000)
     }
@@ -400,15 +378,10 @@ object AdbHelper {
         val hasRoot: Boolean
     )
 
-    /**
-     * TODO: document getFullStatus
-     * @param Context
-     * (suspend function)
-     */
     suspend fun getFullStatus(context: Context): AdbStatus = withContext(Dispatchers.IO) {
         val hasRoot = ShellUtils.hasRoot()
         val enabled = getCurrentState(context)
-        val port = getCurrentPort(context)
+        val port = getCurrentPort()
         val pairingPort = getPairingPort()
         val pairingCode = readPairingCode()
         AdbStatus(enabled, port, pairingPort, pairingCode, hasRoot)

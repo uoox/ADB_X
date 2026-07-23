@@ -26,7 +26,6 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
 import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.google.android.material.chip.Chip
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,8 +39,6 @@ import top.cbug.adbx.store.Settings as AppSettings
 import top.cbug.adbx.ui.NetworkFragment
 import top.cbug.adbx.ui.SettingsFragment
 import top.cbug.adbx.ui.StatusFragment
-import top.cbug.adbx.ui.WifiAdapter
-import top.cbug.adbx.ui.WifiItem
 import top.cbug.adbx.ui.WifiSettingsActivity
 import top.cbug.adbx.util.AdbHelper
 import top.cbug.adbx.util.LocaleHelper
@@ -50,7 +47,7 @@ import top.cbug.adbx.util.WifiHelper
 import top.cbug.adbx.util.XposedStatus
 
 /**
- * Single Activity host for the 4-tab bottom-nav UI. Activity is the
+ * Single Activity host for the 3-tab bottom-nav UI. Activity is the
  * shared "controller" — fragments call back into it for things that
  * span tabs (status refresh, wifi scan, pairing dialog, etc.).
  *
@@ -139,9 +136,8 @@ class MainActivity : AppCompatActivity() {
                 switchTo(when (item.itemId) {
                     R.id.tab_status   -> StatusFragment()
                     R.id.tab_networks -> NetworkFragment()
-                    R.id.tab_networks -> NetworkFragment()
                     R.id.tab_settings -> SettingsFragment()
-                    else               -> StatusFragment()
+                    else              -> StatusFragment()
                 })
                 true
             }
@@ -264,16 +260,10 @@ class MainActivity : AppCompatActivity() {
 
     // ---------------- Status refresh (used by fragments) ----------------
 
-    /**
-     * TODO: document refreshStatusAndPairing
-     */
     fun refreshStatusAndPairing() {
         renderXposedStatus()
     }
 
-    /**
-     * TODO: document doFullRefresh
-     */
     fun doFullRefresh() {
         if (refreshInProgress) return
         refreshInProgress = true
@@ -374,26 +364,10 @@ class MainActivity : AppCompatActivity() {
     // ---------------- WiFi refresh ----------------
 
     /**
-     * App-side poll of dumpsys as a backup path for the LSPosed hook.
-     * When the candidate classes don't match this ROM, this is what
-     * surfaces the (transient) pairing port to AdbHelper.
-     */
-    fun pollPairingPort() {
-        bgScope.launch {
-            try {
-                val r = ShellUtils.executeSu(
-                    "dumpsys activity provider com.android.adb 2>&1 | head -200",
-                    2000
-                )
-                if (r.isSuccess() && r.output.isNotBlank()) {
-                    android.util.Log.d("ADB_X_Main", "adb provider dump\n" + r.output.take(400))
-                }
-            } catch (_: Throwable) { }
-        }
-    }
-
-    /**
-     * TODO: document refreshWifiList
+     * Warm the root probe and confirm the saved-network list is reachable
+     * from the "refresh" button on the Networks tab. The list itself is
+     * rendered in [WifiSettingsActivity]; here we only surface a failure
+     * (e.g. permission denied) so the button gives feedback.
      */
     fun refreshWifiList() {
         if (refreshInProgress) {
@@ -404,11 +378,7 @@ class MainActivity : AppCompatActivity() {
         bgScope.launch {
             try {
                 ShellUtils.probeRootFast()
-                val networks = WifiHelper.getSavedNetworks(this@MainActivity)
-                val items = networks.map { WifiItem(it.ssid, it.bssid, it.security) }
-                // List now lives in WifiSettingsActivity; nothing to
-                // push back to NetworkFragment on the tab itself.
-                withContext(Dispatchers.Main) { }
+                WifiHelper.getSavedNetworks(this@MainActivity)
             } catch (t: Throwable) {
                 Log.w(TAG, "refreshWifiList failed", t)
                 withContext(Dispatchers.Main) {
@@ -422,10 +392,6 @@ class MainActivity : AppCompatActivity() {
 
     // ---------------- Port apply ----------------
 
-    /**
-     * TODO: document applyFixedPort
-     * @param Int
-     */
     fun applyFixedPort(port: Int) {
         AppSettings.fixedPort = port
         AppSettings.save(this)
@@ -441,9 +407,6 @@ class MainActivity : AppCompatActivity() {
 
     // ---------------- Pairing dialog ----------------
 
-    /**
-     * TODO: document showSetPairingDialog
-     */
     fun showSetPairingDialog() {
         val input = EditText(this).apply {
             hint = getString(R.string.dialog_pairing_hint)
@@ -468,23 +431,14 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
-    /**
-     * TODO: document openWifiSettingsActivity
-     */
     fun openWifiSettingsActivity() {
         startActivity(Intent(this, WifiSettingsActivity::class.java))
     }
 
-    /**
-     * TODO: document openPairingActivity
-     */
     fun openPairingActivity() {
         startActivity(Intent(this, PairingActivity::class.java))
     }
 
-    /**
-     * TODO: document showXposedHelpDialog
-     */
     fun showXposedHelpDialog() {
         val info = XposedStatus.probe(this)
         val detected = if (info.frameworkPackages.isEmpty()) "  (none)"
@@ -511,9 +465,6 @@ class MainActivity : AppCompatActivity() {
 
     // ---------------- Permissions ----------------
 
-    /**
-     * TODO: document requestNeededPermissions
-     */
     fun requestNeededPermissions() {
         val missing = mutableListOf<String>()
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
@@ -599,9 +550,6 @@ class MainActivity : AppCompatActivity() {
                 .getString(top.cbug.adbx.WifiStateReceiver.KEY_SSID, "") ?: ""
         } catch (_: Throwable) { "" }
     }
-    /**
-     * TODO: document getTrustedWifiLastActionMs
-     */
     fun getTrustedWifiLastActionMs(): Long {
         return try {
             getSharedPreferences(top.cbug.adbx.WifiStateReceiver.PREFS, android.content.Context.MODE_PRIVATE)
@@ -611,20 +559,11 @@ class MainActivity : AppCompatActivity() {
 
     // ---------------- Misc helpers ----------------
 
-    /**
-     * TODO: document toast
-     * @param String
-     */
     fun toast(msg: String) {
         if (isFinishing || isDestroyed) return
         mainHandler.post { Toast.makeText(this, msg, Toast.LENGTH_LONG).show() }
     }
 
-    /**
-     * TODO: document copyToClipboard
-     * @param String
-     * @param String
-     */
     fun copyToClipboard(label: String, text: String) {
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         cm.setPrimaryClip(ClipData.newPlainText(label, text))
@@ -633,11 +572,6 @@ class MainActivity : AppCompatActivity() {
     fun currentCachedIp(): String = cachedLocalIp
     fun currentCachedPort(): String = cachedPort
 
-    /**
-     * TODO: document toggleTrusted
-     * @param String
-     * @param Boolean
-     */
     fun toggleTrusted(ssid: String, trusted: Boolean) {
         if (trusted) AppSettings.addTrusted(ssid) else AppSettings.removeTrusted(ssid)
         AppSettings.save(this)

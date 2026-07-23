@@ -57,7 +57,6 @@ class WifiStateReceiver : BroadcastReceiver() {
 
             if (!AppSettings.autoEnable && !AppSettings.autoDisable) {
                 Log.d(TAG, "no auto-toggle rules armed, skip")
-                pending.finish()
                 return
             }
 
@@ -65,7 +64,6 @@ class WifiStateReceiver : BroadcastReceiver() {
             Log.d(TAG, "Wi-Fi state changed: ssid='" + ssid + "' action=" + action)
             if (ssid.isBlank()) {
                 Log.d(TAG, "empty SSID, skip")
-                pending.finish()
                 return
             }
 

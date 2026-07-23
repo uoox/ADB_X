@@ -17,12 +17,8 @@ object WifiHelper {
     @Volatile private var externalIpFetchedMs: Long = 0L
     private const val EXTERNAL_IP_TTL_MS = 10 * 60 * 1000L  // 10 min
 
-    /**
-     * TODO: document getSavedNetworks
-     * @param Context
-     */
     fun getSavedNetworks(context: Context): List<SavedWifi> {
-        Log.d(TAG, "getSavedNetworks: rootAvailable=" + ShellUtils.hasRoot() + " contextNull=" + (context == null))
+        Log.d(TAG, "getSavedNetworks: rootAvailable=" + ShellUtils.hasRoot())
         // 1. Direct XML parsing (most reliable with root)
         if (ShellUtils.hasRoot()) {
             val rootXml = try { getSavedNetworksRootXml() } catch (_: Exception) { emptyList() }
@@ -53,14 +49,12 @@ object WifiHelper {
         }
 
         // 4. Fallback: use WifiManager API (requires location permission)
-        if (context != null) {
-            val apiNetworks = try { getSavedNetworksApi(context) } catch (_: Exception) { emptyList() }
-            if (apiNetworks.isNotEmpty()) {
-                Log.d(TAG, "Loaded " + apiNetworks.size + " networks via WifiManager API")
-                return apiNetworks
-            }
-            Log.d(TAG, "API path returned empty")
+        val apiNetworks = try { getSavedNetworksApi(context) } catch (_: Exception) { emptyList() }
+        if (apiNetworks.isNotEmpty()) {
+            Log.d(TAG, "Loaded " + apiNetworks.size + " networks via WifiManager API")
+            return apiNetworks
         }
+        Log.d(TAG, "API path returned empty")
 
         // 5. LSPosed-written file (system_server can read all WiFi configs
         // that the app domain cannot). Read /data/local/tmp/adb_x_wifi_list.
@@ -355,10 +349,6 @@ object WifiHelper {
         return networks.toList()
     }
 
-    /**
-     * TODO: document getCurrentSsid
-     * @param Context
-     */
     fun getCurrentSsid(context: Context): String {
         val wm = context.getSystemService(Context.WIFI_SERVICE) as? android.net.wifi.WifiManager ?: return ""
         return try {
@@ -368,10 +358,6 @@ object WifiHelper {
         } catch (_: Throwable) { "" }
     }
 
-    /**
-     * TODO: document cleanSsid
-     * @param String?
-     */
     fun cleanSsid(ssid: String?): String {
         if (ssid == null) return ""
         var s = ssid.trim()

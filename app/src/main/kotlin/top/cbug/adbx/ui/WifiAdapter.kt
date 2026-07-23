@@ -32,18 +32,10 @@ class WifiAdapter(
         val swTrusted: MaterialSwitch = view.findViewById(R.id.swTrusted)
     }
 
-    /**
-     * TODO: document update
-     * @param List<WifiItem>
-     */
+    /** Replace the backing list and re-sort (trusted networks pinned to top). */
     fun update(newItems: List<WifiItem>) {
         items.clear()
         items.addAll(newItems)
-        sortAndNotify()
-    }
-
-    /** Re-sort after the trusted set changed but the network list didn't. */
-    fun refresh(trusted: Set<String>) {
         sortAndNotify()
     }
 

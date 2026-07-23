@@ -31,10 +31,6 @@ object Settings {
 
     private var trustedSsids: MutableSet<String> = mutableSetOf()
 
-    /**
-     * TODO: document load
-     * @param Context
-     */
     fun load(context: Context) {
         val p = prefs(context)
         fixedPortEnabled = p.getBoolean(KEY_FIXED_PORT_ENABLED, false)
@@ -47,39 +43,23 @@ object Settings {
         trustedSsids = p.getStringSet(KEY_TRUSTED_SSIDS, emptySet())!!.toMutableSet()
     }
 
-    /**
-     * TODO: document isTrusted
-     * @param String
-     */
     fun isTrusted(ssid: String): Boolean {
         val clean = sanitizeSsid(ssid)
         if (clean.isBlank()) return false
         return trustedSsids.contains(clean)
     }
 
-    /**
-     * TODO: document addTrusted
-     * @param String
-     */
     fun addTrusted(ssid: String) {
         val clean = sanitizeSsid(ssid)
         if (clean.isNotBlank()) trustedSsids.add(clean)
     }
 
-    /**
-     * TODO: document removeTrusted
-     * @param String
-     */
     fun removeTrusted(ssid: String) {
         trustedSsids.remove(sanitizeSsid(ssid))
     }
 
     fun trustedSet(): Set<String> = trustedSsids.toSet()
 
-    /**
-     * TODO: document save
-     * @param Context
-     */
     fun save(context: Context) {
         prefs(context).edit()
             .putBoolean(KEY_FIXED_PORT_ENABLED, fixedPortEnabled)

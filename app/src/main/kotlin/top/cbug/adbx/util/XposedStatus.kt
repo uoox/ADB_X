@@ -41,8 +41,8 @@ object XposedStatus {
     )
 
     /**
-     * Called by [top.cbug.adbx.xposed.XposedInit.handleLoadPackage] whenever the
-     * framework injects into a process. Persists to SharedPreferences so the
+     * Called by [top.cbug.adbx.xposed.XposedInit.markSelfActive] whenever the
+     * framework injects into our own process. Persists to SharedPreferences so the
      * app process — even when its classloader is different from the one
      * LSPosed used — can see the injection on the next probe. Also writes
      * a marker file as a secondary signal.
@@ -102,16 +102,8 @@ object XposedStatus {
     /** Held statically so XposedInit (running before Application.onCreate) can
      *  reach the application context. Initialised lazily on first access. */
     private var appContext: Context? = null
-    /**
-     * TODO: document init
-     * @param Context
-     */
     fun init(app: Context) { appContext = app.applicationContext }
 
-    /**
-     * TODO: document reset
-     * @param null
-     */
     fun reset(context: Context? = null) {
         try {
             (context ?: appContext)?.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE)
@@ -123,8 +115,10 @@ object XposedStatus {
     }
 
     /**
-     * Returns true if XposedInit ran in our process within the last 30 minutes
-     * (LSPosed fires handleLoadPackage every time the app is launched).
+     * Returns [State.ACTIVE] if XposedInit ran in our process within the
+     * staleness window checked by [hasSpMarker] (7 days) — LSPosed fires
+     * onPackageReady every time the app is launched, so a recent timestamp
+     * is reliable evidence.
      */
     fun probe(context: Context): Info {
         // 1) Authoritative: SharedPreferences written by the hook in any
@@ -155,7 +149,7 @@ object XposedStatus {
 
         Log.d(TAG, "probe: no ACTIVE signal, falling through to framework check")
 
-        // 4) Evidence the framework exists on this device
+        // 5) Evidence the framework exists on this device
         val frameworks = mutableListOf<String>()
         val hint = StringBuilder()
 

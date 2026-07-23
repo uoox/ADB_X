@@ -11,8 +11,8 @@ android {
         applicationId = "top.cbug.adbx"
         minSdk = 30
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.2.0"
+        versionCode = 4
+        versionName = "1.2.1"
     }
 
     signingConfigs {
@@ -35,7 +35,14 @@ android {
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("release")
+            // Sign with the release keystore when one is configured (CI
+            // provides keystore.properties). Fall back to the debug key so a
+            // local `assembleRelease` still produces an installable APK
+            // instead of failing on a missing storeFile.
+            signingConfig = if (rootProject.file("keystore.properties").exists())
+                signingConfigs.getByName("release")
+            else
+                signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import top.cbug.adbx.util.ShellUtils
 import java.io.File
 
 /**
@@ -13,9 +14,11 @@ import java.io.File
  *   - IAdbManager.enablePairingByPairingCode()
  *   - The user manually opens the Developer options pair dialog.
  *
- * Writing the file requires root because the broadcast is delivered to
- * the app (uid 10597) but the system writes to /data/local/tmp/ with shell
- * rights; we wrap the writes in ShellUtils.executeSu().
+ * The broadcast is delivered to the app uid, which cannot write
+ * /data/local/tmp/ (owned by shell). We therefore try a direct write
+ * first — a no-op for the app uid, but it succeeds when SELinux happens
+ * to allow it — and fall back to an elevated shell write via
+ * [ShellUtils.executeSu].
  */
 class PairingReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
@@ -39,15 +42,25 @@ class PairingReceiver : BroadcastReceiver() {
                 else -> ""
             }
             if (resolvedPort > 0 && resolvedPort.toString().length in 4..5) {
-                File("/data/local/tmp/adb_x_pairing_port").writeText(resolvedPort.toString())
+                writeMarker("/data/local/tmp/adb_x_pairing_port", resolvedPort.toString())
                 Log.d("ADB_X_Rcvr", "wrote pairing port: " + resolvedPort)
             }
             if (resolvedCode.isNotBlank()) {
-                File("/data/local/tmp/adb_x_pairing_code").writeText(resolvedCode)
+                writeMarker("/data/local/tmp/adb_x_pairing_code", resolvedCode)
                 Log.d("ADB_X_Rcvr", "wrote pairing code: " + resolvedCode)
             }
         } catch (t: Throwable) {
             Log.w("ADB_X_Rcvr", "onReceive failed", t)
         }
+    }
+
+    private fun writeMarker(path: String, value: String) {
+        try {
+            val f = File(path)
+            f.writeText(value)
+            f.setReadable(true, false)
+            return
+        } catch (_: Throwable) { /* app uid can't write /data/local/tmp — use su */ }
+        ShellUtils.executeSu("echo '$value' > $path && chmod 644 $path", 2000)
     }
 }
