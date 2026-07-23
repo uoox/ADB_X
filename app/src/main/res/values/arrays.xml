@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Default LSPosed scope for the module (system_server + Settings + our
+         own app process). Mirrors META-INF/xposed/scope.list. LSPosed reads
+         this via the manifest `xposedscope` meta-data to pre-tick the right
+         apps when the user enables the module. -->
+    <string-array name="xposed_scope" translatable="false">
+        <item>android</item>
+        <item>com.android.settings</item>
+        <item>top.cbug.adbx</item>
+    </string-array>
+</resources>

@@ -77,9 +77,24 @@
            </intent-filter>
        </receiver>
 
-        <!-- Modern libxposed module: entry class, scope and API version are
-             declared in META-INF/xposed/{java_init.list,scope.list,module.prop}.
-             No legacy xposedmodule/xposedminversion/xposedscope meta-data is
-             needed — LSPosed detects the module from those resource files. -->
+        <!-- The modern entry point (class, scope, API version) lives in
+             META-INF/xposed/{java_init.list,scope.list,module.prop}. We ALSO
+             keep the legacy Xposed manifest meta-data below: LSPosed still
+             discovers modules primarily from `xposedmodule`, so a
+             META-INF/xposed-only module is not listed in the manager and can
+             never be enabled. Both declarations together = detected by every
+             LSPosed and loaded through the modern java_init.list entry. -->
+        <meta-data
+            android:name="xposedmodule"
+            android:value="true" />
+        <meta-data
+            android:name="xposeddescription"
+            android:value="@string/xposed_description" />
+        <meta-data
+            android:name="xposedminversion"
+            android:value="93" />
+        <meta-data
+            android:name="xposedscope"
+            android:resource="@array/xposed_scope" />
     </application>
 </manifest>

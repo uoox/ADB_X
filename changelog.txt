@@ -1,3 +1,18 @@
+# ADB_X v1.2.2
+
+## Critical fix: module was undetectable by LSPosed
+- The 1.2.0 migration to the libxposed API dropped the legacy
+  `xposedmodule` manifest meta-data, keeping only the
+  `META-INF/xposed/` declaration. LSPosed still discovers modules
+  primarily from that manifest marker, so ADB_X stopped appearing in
+  the LSPosed manager entirely — it could never be ticked or enabled,
+  and always reported "module not active". Restored the
+  `xposedmodule` / `xposeddescription` / `xposedminversion` /
+  `xposedscope` meta-data (with a matching `@array/xposed_scope`)
+  alongside the modern `META-INF/xposed/` entry, so the module is both
+  detected by every LSPosed and loaded through the modern
+  `java_init.list` entry point.
+
 # ADB_X v1.2.1
 
 ## Bug fixes
