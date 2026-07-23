@@ -1,52 +1,65 @@
 package top.cbug.adbx.xposed
 
-import de.robv.android.xposed.IXposedHookLoadPackage
-import de.robv.android.xposed.XposedBridge
-import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam
+import android.content.Context
+import android.util.Log
+import io.github.libxposed.api.XposedModule
+import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
+import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
+import io.github.libxposed.api.XposedModuleInterface.SystemServerStartingParam
 import top.cbug.adbx.util.XposedStatus
 
-class XposedInit : IXposedHookLoadPackage {
+/**
+ * Modern libxposed (API 102) entry point.
+ *
+ * The framework instantiates this class once per hooked process (see the
+ * scope declared in META-INF/xposed/scope.list) and attaches the
+ * [io.github.libxposed.api.XposedInterface] before any lifecycle callback
+ * runs, so [log] and [hook] are usable from every override below.
+ *
+ * Routing:
+ *  - system_server        -> [AdbSystemHooks] (all ADB management logic)
+ *  - com.android.settings -> [SettingsHooks]  (pairing-code capture)
+ *  - our own app process  -> flip the "module active" marker the UI reads
+ */
+class XposedInit : XposedModule() {
+
     companion object {
         const val MODULE_PACKAGE = "top.cbug.adbx"
         const val TAG = "ADB_X"
+    }
 
-        /**
-         * TODO: document log
-         * @param String
-         */
-        fun log(msg: String) {
-            XposedBridge.log("[$TAG] $msg")
-        }
+    override fun onModuleLoaded(param: ModuleLoadedParam) {
+        log(Log.INFO, TAG, "loaded into ${param.processName} (systemServer=${param.isSystemServer})")
+    }
 
-        /**
-         * TODO: document log
-         * @param Throwable
-         */
-        fun log(t: Throwable) {
-            XposedBridge.log(t)
+    override fun onSystemServerStarting(param: SystemServerStartingParam) {
+        log(Log.INFO, TAG, "system_server starting — installing ADB hooks")
+        AdbSystemHooks.hook(this, param.classLoader)
+    }
+
+    override fun onPackageReady(param: PackageReadyParam) {
+        when (param.packageName) {
+            "com.android.settings" -> SettingsHooks.hook(this, param.classLoader)
+            MODULE_PACKAGE -> markSelfActive(param.classLoader)
         }
     }
 
-    override fun handleLoadPackage(lpparam: LoadPackageParam) {
-        // Flip the in-process activation flag whenever the framework injects into us.
-        // This is what the UI reads to render the "Xposed active" badge. Pass the
-        // process context (when injecting into our own app) so markActive() can
-        // write to SharedPreferences — works across classloader boundaries.
-        if (lpparam.packageName == MODULE_PACKAGE) {
-            try {
-                // Get the application context via the loaded ActivityThread class
-                // (available as soon as Zygote spawns the app process).
-                val atClass = lpparam.classLoader.loadClass("android.app.ActivityThread")
-                val currentAT = atClass.getMethod("currentActivityThread").invoke(null)
-                val appCtx = atClass.getMethod("getApplication").invoke(currentAT)
-                    as? android.content.Context
-                if (appCtx != null) XposedStatus.init(appCtx)
-            } catch (_: Throwable) { }
-            XposedStatus.markActive()
+    /**
+     * Flip the in-process activation flag the UI reads to render the
+     * "Xposed active" badge. Runs inside our own app process, so the
+     * application context is reachable via ActivityThread and the marker
+     * lands directly in our own SharedPreferences.
+     */
+    private fun markSelfActive(classLoader: ClassLoader) {
+        try {
+            val atClass = Class.forName("android.app.ActivityThread", false, classLoader)
+            val currentAT = atClass.getMethod("currentActivityThread").invoke(null)
+            val appCtx = atClass.getMethod("getApplication").invoke(currentAT) as? Context
+            if (appCtx != null) XposedStatus.init(appCtx)
+        } catch (t: Throwable) {
+            log(Log.WARN, TAG, "markSelfActive: context lookup failed", t)
         }
-        when (lpparam.packageName) {
-            "android" -> AdbSystemHooks.hook(lpparam)
-            "com.android.settings" -> SettingsHooks.hook(lpparam)
-        }
+        XposedStatus.markActive()
+        log(Log.INFO, TAG, "module active in own process")
     }
 }

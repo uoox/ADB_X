@@ -96,7 +96,7 @@ ADB_X/
 │   ├── build.gradle.kts
 │   └── src/main/
 │       ├── AndroidManifest.xml
-│       ├── assets/xposed_init
+│       ├── resources/META-INF/xposed/   (libxposed entry: java_init.list, scope.list, module.prop)
 │       ├── kotlin/top/cbug/adbx/
 │       │   ├── App.kt
 │       │   ├── BootReceiver.kt

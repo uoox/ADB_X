@@ -1,6 +1,28 @@
-# ADB_X v1.0.0
+# ADB_X v1.2.0
 
-## Initial release
+## Migrated to the modern libxposed API (102)
+- Replaced the legacy `de.robv.android.xposed:api:82` framework with
+  `io.github.libxposed:api:102.0.0`.
+- Entry point moved from `assets/xposed_init` to
+  `META-INF/xposed/java_init.list`; scope and API version now live in
+  `META-INF/xposed/scope.list` and `META-INF/xposed/module.prop`.
+- All method/constructor hooks rewritten to the interceptor-chain model
+  (`XposedInterface.hook(...).intercept { ... }`); every `XposedHelpers`
+  call replaced with plain reflection.
+
+## Fixes & improvements
+- Pairing-dialog hooks now hook every declared constructor instead of
+  guessing a single `(Object)` signature, so OEM builds that added
+  constructor parameters still surface the pairing port.
+- Pairing-port marker is written directly first and only falls back to an
+  elevated shell write, avoiding a redundant `su` spawn on every capture.
+- Removed dead code (unused context lookup in the port writer) and the
+  placeholder "TODO: document" comments.
+- Added the missing JUnit test dependency so the unit tests compile.
+- Dropped the now-unused `api.xposed.info` Maven repo and legacy Xposed
+  manifest meta-data.
+
+## Initial release (v1.0.0)
 - Modern Material 3 UI (cards, switches, color indicators)
 - Fixed ADB port (set custom port, avoid random assignment)
 - Pairing code capture & display

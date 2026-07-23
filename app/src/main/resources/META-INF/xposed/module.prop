@@ -1,0 +1,5 @@
+name=ADB_X
+description=Wireless ADB enhancement: fixed port, pairing-code capture, trusted-WiFi auto-enable.
+minApiVersion=101
+targetApiVersion=102
+staticScope=true

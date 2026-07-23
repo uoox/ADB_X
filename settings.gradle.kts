@@ -10,7 +10,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven("https://api.xposed.info/")
+        // libxposed API is published on Maven Central; the legacy
+        // api.xposed.info repo is no longer needed.
         maven("https://jitpack.io")
     }
 }

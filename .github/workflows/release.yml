@@ -90,6 +90,10 @@ jobs:
           prerelease: false
 
       - name: Mirror full source to Xposed repo
+        # Only runs where the Xposed-Modules-Repo push token is configured
+        # (the upstream repo). Forks without the secret skip the mirror and
+        # still publish a normal GitHub Release above.
+        if: ${{ secrets.XPOSED_TOKEN != '' }}
         env:
           VC: ${{ steps.apk.outputs.versionCode }}
           VN: ${{ steps.apk.outputs.versionName }}
@@ -129,6 +133,7 @@ jobs:
           echo "- Release v$VN" >> changelog.txt
 
       - name: Push mirror to Xposed repo
+        if: ${{ secrets.XPOSED_TOKEN != '' }}
         run: |
           cd xposed_mirror
           git config user.name "github-actions[bot]"
@@ -165,6 +170,7 @@ jobs:
           echo "wrote $(wc -l < changelog.txt) lines to changelog.txt" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Create GitHub Release on Xposed repo
+        if: ${{ secrets.XPOSED_TOKEN != '' }}
         env:
           GH_TOKEN: ${{ secrets.XPOSED_TOKEN }}
           VC: ${{ steps.apk.outputs.versionCode }}
